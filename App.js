@@ -8,37 +8,30 @@ import {
   FlatList,
   ScrollView,
   Platform,
-  Alert, 
+  Modal,
 } from 'react-native';
 
 // --- Dados de Exemplo (Vazio) ---
 const INITIAL_MEDICATIONS = []; 
 
-// --- Componente de Item da Medicação (COM O BOTÃO FUNCIONAL) ---
+// --- Componente de Item da Medicação ---
 const MedicationItem = ({ item, onDelete }) => {
-  // Lógica de Alerta (Simulada): 
   const isTimeNear = item.proximoHorario === '16:00' || item.proximoHorario === '19:00'; 
   const alertColor = isTimeNear ? '#FFD700' : '#E0E0E0'; 
 
   return (
     <View style={[styles.itemContainer, { borderColor: alertColor, borderWidth: isTimeNear ? 2 : 1 }]}>
-      
-      {/* Alerta Visual */}
       {isTimeNear && (
         <View style={styles.alertBanner}>
           <Text style={styles.alertText}>💊 HORA DO REMÉDIO CHEGANDO! ⏰</Text>
         </View>
       )}
 
-      {/* Informações Principais e Botão de Excluir */}
       <View style={styles.itemHeader}>
         <Text style={styles.itemTitle}>{item.nome} - {item.dose}</Text>
-        
-        {/* BOTÃO DE EXCLUSÃO QUE CHAMA onDelete COM O ID DO ITEM */}
         <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(item.id)}>
           <Text style={styles.deleteButtonText}>Excluir</Text>
         </TouchableOpacity>
-
       </View>
       
       <View style={styles.infoRow}>
@@ -51,19 +44,16 @@ const MedicationItem = ({ item, onDelete }) => {
         <Text style={styles.infoValue}>{item.horarios}</Text>
       </View>
 
-      {/* Anotações - Só exibe se houver conteúdo */}
       {item.anotacoes ? (
         <>
           <Text style={styles.notesTitle}>Observações:</Text>
           <Text style={styles.notesText}>{item.anotacoes}</Text>
         </>
       ) : null}
-      
     </View>
   );
 };
 
-// --- Componente Principal (App.js) ---
 export default function App() {
   const [medications, setMedications] = useState(INITIAL_MEDICATIONS);
   const [nome, setNome] = useState('');
@@ -72,11 +62,15 @@ export default function App() {
   const [horarios, setHorarios] = useState('');
   const [anotacoes, setAnotacoes] = useState('');
 
+  // --- Estados para o modal de exclusão ---
+  const [modalVisible, setModalVisible] = useState(false);
+  const [medToDelete, setMedToDelete] = useState(null);
+  const [deleteAll, setDeleteAll] = useState(false);
+
+  // --- Adicionar nova medicação ---
   const addMedication = () => {
-    // Anotações (anotacoes) é opcional.
     if (nome && dose && frequencia && horarios) {
       const newMed = {
-        // Gera um ID mais seguro (ex: com um número aleatório somado ao timestamp)
         id: Date.now().toString() + Math.random().toString(), 
         nome,
         dose,
@@ -86,67 +80,44 @@ export default function App() {
         proximoHorario: horarios.split(',')[0].trim() || '', 
       };
       setMedications([newMed, ...medications]);
-      
-      // Limpar formulário
       setNome('');
       setDose('');
       setFrequencia('');
       setHorarios('');
       setAnotacoes('');
     } else {
-      Alert.alert('Campos Obrigatórios', 'Por favor, preencha o Nome, Dose, Frequência e Horários.');
+      alert('Por favor, preencha o Nome, Dose, Frequência e Horários.');
     }
   };
 
-  // --- FUNÇÃO PARA APAGAR UM ITEM ESPECÍFICO (CORRIGIDA COM CALLBACK) ---
+  // --- Abrir modal de exclusão de um item ---
   const deleteMedication = (id) => {
-    Alert.alert(
-      "Confirmar Exclusão",
-      "Tem certeza que deseja apagar esta medicação?",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel"
-        },
-        { 
-          text: "Excluir", 
-          // USANDO O CALLBACK DE FUNÇÃO: setMedications(prevMeds => ...)
-          // Isso garante que você está filtrando o estado mais recente (prevMeds)
-          onPress: () => setMedications(prevMeds => prevMeds.filter(med => med.id !== id)), 
-          style: "destructive"
-        }
-      ],
-      { cancelable: true }
-    );
+    setMedToDelete(id);
+    setDeleteAll(false);
+    setModalVisible(true);
   };
-  // ----------------------------------------------------------------------
 
-  // --- FUNÇÃO PARA APAGAR TUDO ---
+  // --- Abrir modal de exclusão total ---
   const clearAllMedications = () => {
-    Alert.alert(
-      "Confirmar Exclusão",
-      "Tem certeza que deseja apagar TODAS as medicações registradas? Esta ação é irreversível.",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel"
-        },
-        { 
-          text: "Apagar Tudo", 
-          onPress: () => setMedications([]), 
-          style: "destructive"
-        }
-      ],
-      { cancelable: false }
-    );
+    setDeleteAll(true);
+    setModalVisible(true);
   };
-  // ------------------------------------
+
+  // --- Confirmar exclusão ---
+  const confirmDelete = () => {
+    if (deleteAll) {
+      setMedications([]);
+    } else if (medToDelete) {
+      setMedications(prev => prev.filter(med => med.id !== medToDelete));
+    }
+    setModalVisible(false);
+    setMedToDelete(null);
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.headerTitle}>Remédios de Notas</Text>
 
-      {/* Formulário de Adição */}
       <ScrollView style={styles.formContainer}>
         <Text style={styles.sectionTitle}>Adicionar Novo Medicamento</Text>
         <TextInput
@@ -179,7 +150,7 @@ export default function App() {
         />
         <TextInput
           style={[styles.input, styles.textArea]}
-          placeholder="Anotações (Efeitos colaterais/Observações) - Opcional"
+          placeholder="Anotações (opcional)"
           placeholderTextColor="#999"
           value={anotacoes}
           onChangeText={setAnotacoes}
@@ -192,10 +163,8 @@ export default function App() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Lista de Medicamentos */}
       <View style={styles.listHeader}>
         <Text style={styles.sectionTitle}>Minhas Medicações Atuais</Text>
-        {/* Botão de exclusão total (só aparece se houver medicações) */}
         {medications.length > 0 && (
           <TouchableOpacity style={styles.clearButton} onPress={clearAllMedications}>
             <Text style={styles.clearButtonText}>Apagar Tudo (X)</Text>
@@ -205,7 +174,6 @@ export default function App() {
       
       <FlatList
         data={medications}
-        // Passa a função de exclusão como prop
         renderItem={({ item }) => <MedicationItem item={item} onDelete={deleteMedication} />}
         keyExtractor={item => item.id}
         style={styles.list}
@@ -214,6 +182,40 @@ export default function App() {
           <Text style={styles.emptyListText}>Nenhuma medicação registrada.</Text>
         )}
       />
+
+      {/* --- MODAL DE CONFIRMAÇÃO --- */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalText}>
+              {deleteAll
+                ? "Tem certeza que deseja apagar TODAS as medicações registradas?"
+                : "Tem certeza que deseja excluir esta medicação?"}
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: '#ccc' }]} 
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.modalButton, { backgroundColor: '#B22222' }]} 
+                onPress={confirmDelete}
+              >
+                <Text style={styles.modalButtonText}>Excluir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -222,7 +224,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F9FC', 
+    backgroundColor: '#F7F9FC',
     paddingTop: Platform.OS === 'android' ? 40 : 60, 
     paddingHorizontal: 15,
   },
@@ -238,7 +240,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  // --- Formulário ---
   formContainer: {
     maxHeight: 300, 
     padding: 10,
@@ -261,7 +262,7 @@ const styles = StyleSheet.create({
   },
   textArea: {
     height: 80,
-    textAlignVertical: 'top', 
+    textAlignVertical: 'top',
   },
   addButton: {
     backgroundColor: '#1E90FF',
@@ -276,7 +277,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  // --- Lista ---
   listHeader: { 
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -295,16 +295,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
-  list: {
-    flex: 1,
-  },
+  list: { flex: 1 },
   emptyListText: {
     textAlign: 'center',
     color: '#999',
     marginTop: 20,
     fontStyle: 'italic',
   },
-  // --- Item da Medicação ---
   itemContainer: {
     backgroundColor: '#fff',
     padding: 15,
@@ -320,15 +317,14 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   itemTitle: {
-    flex: 1, 
+    flex: 1,
     fontSize: 20,
     fontWeight: 'bold',
     color: '#444',
     marginRight: 10,
   },
-  // Estilo para o botão de Excluir individual
   deleteButton: {
-    backgroundColor: '#B22222', 
+    backgroundColor: '#B22222',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 5,
@@ -362,17 +358,49 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontStyle: 'italic',
   },
-  // --- Alerta ---
   alertBanner: {
-    backgroundColor: '#FFEB3B', 
+    backgroundColor: '#FFEB3B',
     padding: 8,
     borderRadius: 5,
     marginBottom: 10,
     alignItems: 'center',
   },
   alertText: {
-    color: '#B7410E', 
+    color: '#B7410E',
     fontWeight: 'bold',
     fontSize: 15,
+  },
+  // --- Modal ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 20,
+    elevation: 5,
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
