@@ -1,0 +1,11 @@
+Criar o png de um mascote
+criar um gif do mascote 
+colocar o mascote na tela inicial como uma abertura da aplicação e a aplicação ficar travada ate o fim da animação
+Tela de carregamento inicial
+Criar uma tela de perfil de usuário
+Tela de log-in
+Criar a função que reorganiza a lista de medicamentos pelos horário mais urgentes
+Criar o botão de atualizar medicamentos manualmente
+Criar a função que atualiza automaticamente de tempos em tempos
+Criar o log out
+Colocar um rotulo, informando a versao do projet, seguindo o padrão: V01.00.00

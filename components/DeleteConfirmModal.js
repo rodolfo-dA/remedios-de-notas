@@ -1,7 +1,11 @@
+// components/DeleteConfirmModal.js
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
 
 export default function DeleteConfirmModal({ visible, onCancel, onConfirm, deleteAll }) {
+  const scheme = useColorScheme();
+  const dark = scheme === 'dark';
+
   return (
     <Modal
       transparent
@@ -10,8 +14,8 @@ export default function DeleteConfirmModal({ visible, onCancel, onConfirm, delet
       onRequestClose={onCancel}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalBox}>
-          <Text style={styles.modalText}>
+        <View style={[styles.modalBox, { backgroundColor: dark ? '#0F1724' : '#fff' }]}>
+          <Text style={[styles.modalText, { color: dark ? '#E6EEF8' : '#333' }]}>
             {deleteAll
               ? "Tem certeza que deseja apagar TODAS as medicações registradas?"
               : "Tem certeza que deseja excluir esta medicação?"}
@@ -19,7 +23,7 @@ export default function DeleteConfirmModal({ visible, onCancel, onConfirm, delet
 
           <View style={styles.modalButtons}>
             <TouchableOpacity 
-              style={[styles.modalButton, { backgroundColor: '#ccc' }]} 
+              style={[styles.modalButton, { backgroundColor: '#999' }]} 
               onPress={onCancel}
             >
               <Text style={styles.modalButtonText}>Cancelar</Text>
@@ -41,22 +45,21 @@ export default function DeleteConfirmModal({ visible, onCancel, onConfirm, delet
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalBox: {
-    width: '80%',
+    width: '85%',
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-    elevation: 5,
+    borderRadius: 12,
+    padding: 18,
+    elevation: 6,
   },
   modalText: {
     fontSize: 16,
-    color: '#333',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -65,7 +68,7 @@ const styles = StyleSheet.create({
   modalButton: {
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 6,
+    borderRadius: 8,
   },
   modalButtonText: {
     color: '#fff',
