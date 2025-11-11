@@ -1,8 +1,7 @@
 // styles/globalStyles.js
-import { StyleSheet, Platform, useColorScheme } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
-export default function useGlobalStyles(schemeOverride) {
-  const scheme = schemeOverride || useColorScheme();
+export default function useGlobalStyles(scheme) {
   const dark = scheme === 'dark';
 
   return StyleSheet.create({
@@ -16,7 +15,7 @@ export default function useGlobalStyles(schemeOverride) {
       fontSize: 28,
       fontWeight: 'bold',
       color: dark ? '#7FDBFF' : '#1E90FF',
-      textAlign: 'center',
+      textAlign: 'left',
       marginBottom: 10,
     },
     sectionTitle: {
@@ -28,7 +27,7 @@ export default function useGlobalStyles(schemeOverride) {
       backgroundColor: dark ? '#0F1724' : '#F1F1F1',
       borderRadius: 5,
       padding: 12,
-      marginBottom: 6,
+      marginBottom: 10, // Aumentado para melhor espaçamento
       fontSize: 16,
       color: dark ? '#E6EEF8' : '#333',
       borderWidth: 1,
@@ -70,8 +69,9 @@ export default function useGlobalStyles(schemeOverride) {
     errorText: {
       color: '#FF6347',
       fontSize: 13,
-      marginBottom: 6,
+      marginBottom: 10,
       fontWeight: '600',
+      textAlign: 'left',
     },
     smallMuted: {
       fontSize: 12,
