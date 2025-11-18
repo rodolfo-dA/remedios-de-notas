@@ -1,10 +1,12 @@
 // components/DeleteConfirmModal.js
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
+import useGlobalStyles from '../styles/globalStyles';
 
 export default function DeleteConfirmModal({ visible, onCancel, onConfirm, deleteAll }) {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
+  const globalStyles = useGlobalStyles(scheme);
 
   return (
     <Modal
@@ -14,8 +16,9 @@ export default function DeleteConfirmModal({ visible, onCancel, onConfirm, delet
       onRequestClose={onCancel}
     >
       <View style={styles.modalOverlay}>
+        {/* Aplica o tema escuro ao modal box */}
         <View style={[styles.modalBox, { backgroundColor: dark ? '#0F1724' : '#fff' }]}>
-          <Text style={[styles.modalText, { color: dark ? '#E6EEF8' : '#333' }]}>
+          <Text style={[globalStyles.sectionTitle, { color: dark ? '#E6EEF8' : '#333', textAlign: 'center', marginBottom: 18 }]}>
             {deleteAll
               ? "Tem certeza que deseja apagar TODAS as medicações registradas?"
               : "Tem certeza que deseja excluir esta medicação?"}
@@ -55,11 +58,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 18,
     elevation: 6,
-  },
-  modalText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 18,
   },
   modalButtons: {
     flexDirection: 'row',

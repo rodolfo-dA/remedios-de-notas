@@ -1,6 +1,6 @@
 // screens/LoginScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, useColorScheme } from 'react-native';
 import useGlobalStyles from '../styles/globalStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CreateProfileScreen from './CreateProfileScreen'; 
@@ -10,13 +10,16 @@ const USER_PROFILE_KEY = '@user_profile';
 const LAST_LOGGED_IN_KEY = '@last_logged_in_user';
 
 export default function LoginScreen({ onAuthenticate }) {
-  const styles = useGlobalStyles();
+  const scheme = useColorScheme();
+  const styles = useGlobalStyles(scheme);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isCreating, setIsCreating] = useState(false); 
-  const isDark = styles.container.backgroundColor === '#0B1220'; 
+  const [error, setError] = useState('');
+  const isDark = scheme === 'dark'; 
 
   if (isCreating) {
+    // A tela de criação de perfil é renderizada e herda o tema
     return <CreateProfileScreen onCancel={() => setIsCreating(false)} onProfileCreated={onAuthenticate} />;
   }
 
@@ -49,59 +52,55 @@ export default function LoginScreen({ onAuthenticate }) {
   // FIM DA FUNÇÃO DE LIMPEZA
 
   const handleLogin = async () => {
+    setError('');
     const cleanUsername = username.trim();
     const cleanPassword = password.trim();
 
     if (!cleanUsername || !cleanPassword) {
-      Alert.alert("Erro", "Por favor, preencha todos os campos.");
+      setError("Por favor, preencha todos os campos.");
       return;
     }
 
     try {
       const storedData = await AsyncStorage.getItem(USER_PROFILE_KEY); 
       
-      console.log("--- DEBUG DE LOGIN ---");
-      console.log(`Input Username (Limpo): ${cleanUsername}`);
-      console.log(`Input Password (Limpo): ${cleanPassword}`);
-      console.log(`Dados Brutos do AsyncStorage: ${storedData}`); // Verifica o que foi lido
-
       if (!storedData) {
-        Alert.alert("Erro", "Nenhum perfil encontrado. Crie um perfil primeiro.");
+        setError("Nenhum perfil encontrado. Crie um perfil primeiro.");
         return;
       }
       
       let userProfile;
       try {
         userProfile = JSON.parse(storedData);
-        console.log("Perfil Carregado (JSON.parse OK):", userProfile); // Verifica se o parse funcionou
       } catch (jsonError) {
         console.error("ERRO CRÍTICO: Falha ao fazer JSON.parse dos dados salvos.", jsonError);
-        Alert.alert("Erro de Dados", "O perfil de usuário está corrompido. Por favor, limpe os dados.");
+        setError("O perfil de usuário está corrompido. Por favor, limpe os dados.");
         return;
       }
       
       // Compara os inputs LIMPOS com os dados salvos
       if (userProfile.username === cleanUsername && userProfile.password === cleanPassword) {
-        console.log("LOGIN BEM-SUCEDIDO!");
         onAuthenticate(userProfile); 
       } else {
-        console.log("LOGIN FALHOU: Credenciais não coincidem.");
-        Alert.alert("Erro", "Usuário ou senha inválidos.");
+        setError("Usuário ou senha inválidos.");
       }
 
     } catch (e) {
       console.error("Erro geral no handleLogin:", e);
-      Alert.alert("Erro", "Ocorreu um erro durante o login. Tente novamente.");
+      setError("Ocorreu um erro durante o login. Tente novamente.");
     }
   };
 
   return (
     <KeyboardAvoidingView 
-      style={styles.container} 
+      // Fundo da KeyboardAvoidingView é a cor de fundo do tema
+      style={{ flex: 1, backgroundColor: isDark ? '#0B1220' : '#F7F9FC' }} 
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView contentContainerStyle={localStyles.scrollContainer}>
-        <Text style={[styles.headerTitle, { marginBottom: 30 }]}>Acesso ao Remédios de Notas</Text>
+      <ScrollView contentContainerStyle={localStyles.scrollContainer} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.headerTitle, { textAlign: 'center', marginBottom: 50 }]}>Acesso ao Remédios de Notas</Text>
+        
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <TextInput 
           style={styles.input} 
@@ -129,7 +128,7 @@ export default function LoginScreen({ onAuthenticate }) {
           style={localStyles.createProfileButton} 
           onPress={() => setIsCreating(true)}
         >
-          <Text style={localStyles.createProfileText}>Criar Perfil</Text>
+          <Text style={[localStyles.createProfileText, { color: isDark ? '#7FDBFF' : '#1E90FF' }]}>Criar Perfil</Text>
         </TouchableOpacity>
         
         {/* BOTÃO DE LIMPEZA PARA DEBUG */}
@@ -137,7 +136,7 @@ export default function LoginScreen({ onAuthenticate }) {
           style={localStyles.clearDataButton} 
           onPress={handleClearAuthData}
         >
-          <Text style={localStyles.clearDataText}>Limpar Dados de Perfil (Debug)</Text>
+          <Text style={[localStyles.clearDataText, { color: isDark ? '#FF6347' : '#B22222' }]}>Limpar Dados de Perfil (Debug)</Text>
         </TouchableOpacity>
         
       </ScrollView>

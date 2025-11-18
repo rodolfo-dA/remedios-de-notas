@@ -1,5 +1,5 @@
 // screens/HomeScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {
   Switch,
   useColorScheme,
   Modal, // Importado para o Modal de Perfil
+  Image,
 } from 'react-native';
 import MedicationItem from '../components/MedicationItem';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
@@ -146,6 +147,9 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
   const systemScheme = useColorScheme();
   const [currentTheme, setCurrentTheme] = useState('light'); 
 
+  // NOVO ESTADO: Usado para forçar o recálculo dos horários e a reordenação da lista
+  const [currentTimeTick, setCurrentTimeTick] = useState(Date.now()); 
+
   // Estados do Novo Formulário
   const [frequenciaInterval, setFrequenciaInterval] = useState(8); 
   const [primeiraDoseTime, setPrimeiraDoseTime] = useState('08:00'); 
@@ -183,7 +187,7 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
             setCurrentTheme(systemScheme || 'light');
         }
     })();
-  }, []);
+  }, [systemScheme]);
 
   useEffect(() => {
     (async () => {
@@ -197,35 +201,69 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
 
   const finalScheme = currentTheme;
   const styles = useGlobalStyles(finalScheme);
+  const isDark = finalScheme === 'dark';
 
-  // Lógica de Medicações (com adaptação para o novo formato)
-  useEffect(() => {
-    (async () => {
-        try {
-            const raw = await AsyncStorage.getItem(STORAGE_KEY);
-            if (raw) {
-                const saved = JSON.parse(raw);
-                const normalized = (saved || []).map(m => {
-                    const times = m.horarios ? m.horarios.split(',').map(s => s.trim()) : [];
-                    const proximo = findNextDoseTime(times);
-                    return {
-                        id: m.id || uuid.v4(),
-                        nome: m.nome || 'Sem nome',
-                        dose: m.dose || '',
-                        frequencia: m.frequencia || '', 
-                        horarios: m.horarios || '', 
-                        anotacoes: m.anotacoes || '',
-                        proximoHorario: proximo,
-                        notificationIds: m.notificationIds || [],
-                    };
-                });
-                setMedications(normalized);
-            }
-        } catch (e) {
-            console.warn('Erro ao carregar medicamentos:', e);
+  // FUNÇÃO PRINCIPAL PARA CARREGAR E ATUALIZAR HORÁRIOS
+  const loadAndRecalculateMedications = useCallback(async () => {
+    try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (raw) {
+            const saved = JSON.parse(raw);
+            const normalized = (saved || []).map(m => {
+                const times = m.horarios ? m.horarios.split(',').map(s => s.trim()) : [];
+                // RECALCULA O PRÓXIMO HORÁRIO COM BASE NO TICK ATUAL
+                const proximo = findNextDoseTime(times); 
+                return {
+                    id: m.id || uuid.v4(),
+                    nome: m.nome || 'Sem nome',
+                    dose: m.dose || '',
+                    frequencia: m.frequencia || '', 
+                    horarios: m.horarios || '', 
+                    anotacoes: m.anotacoes || '',
+                    proximoHorario: proximo, // <-- Atualizado
+                    notificationIds: m.notificationIds || [],
+                };
+            });
+            setMedications(normalized);
         }
-    })();
-  }, []);
+    } catch (e) {
+        console.warn('Erro ao carregar medicamentos:', e);
+    }
+  }, [currentTimeTick]); 
+
+  // 4. FUNÇÃO DE ATUALIZAÇÃO AUTOMÁTICA
+  useEffect(() => {
+    loadAndRecalculateMedications(); 
+
+    // Define um intervalo para atualizar o "tick" a cada 60 segundos (1 minuto)
+    const interval = setInterval(() => {
+        setCurrentTimeTick(Date.now());
+    }, 60000); 
+
+    // Limpeza
+    return () => clearInterval(interval);
+  }, [loadAndRecalculateMedications]);
+
+  // 2. ORGANIZAR POR URGÊNCIA (Reordenação)
+  const sortedMedications = medications.slice().sort((a, b) => {
+    const nowMinutes = (new Date().getHours() * 60 + new Date().getMinutes());
+
+    const getMinutesFromNow = (timeString) => {
+        const min = timeToMinutes(timeString || '23:59');
+        // Se o horário já passou hoje, consideramos que ele é amanhã (min + 24h)
+        return min >= nowMinutes ? min - nowMinutes : (min + 24 * 60) - nowMinutes;
+    };
+    
+    const aUrgency = getMinutesFromNow(a.proximoHorario);
+    const bUrgency = getMinutesFromNow(b.proximoHorario);
+
+    // Se a urgência for igual, ordena pelo nome para estabilidade
+    if (aUrgency === bUrgency) {
+        return a.nome.localeCompare(b.nome);
+    }
+    
+    return aUrgency - bUrgency;
+  });
 
   useEffect(() => {
     (async () => {
@@ -237,11 +275,6 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
     })();
   }, [medications]);
 
-  const sortedMedications = medications.slice().sort((a, b) => {
-    const aMin = timeToMinutes(a.proximoHorario || '23:59');
-    const bMin = timeToMinutes(b.proximoHorario || '23:59');
-    return aMin - bMin;
-  });
 
   function validateFields() {
     const e = {};
@@ -415,25 +448,37 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
 
   return (
     <View style={styles.container}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      
+      {/* CABEÇALHO */}
+      <View style={localStyles.header}>
+        <Text style={styles.headerTitle}>Remédios de Notas</Text>
         
-        {/* BOTÃO QUE ABRE O PERFIL E TÍTULO */}
+        {/* ÍCONE DE PERFIL */}
+        <TouchableOpacity 
+          onPress={() => setIsProfileModalVisible(true)} 
+          style={[localStyles.profileButton, { borderColor: isDark ? styles.input.borderColor : '#ccc' }]}
+        >
+          {user.photoUri ? (
+            <Image 
+              source={{ uri: user.photoUri }} 
+              style={localStyles.profileImage} 
+            />
+          ) : (
+            <MaterialIcons name="account-circle" size={30} color={isDark ? styles.sectionTitle.color : '#333'} />
+          )}
+        </TouchableOpacity>
+      </View>
+      
+      {/* CONTROLE DE TEMA */}
+      <View style={{ alignItems: 'flex-end', marginTop: -10, marginBottom: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => setIsProfileModalVisible(true)} style={{ marginRight: 10 }}>
-                <MaterialIcons name="account-circle" size={32} color={styles.headerTitle.color} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Remédios de Notas</Text>
-        </View>
-
-        {/* CONTROLE DE TEMA */}
-        <View style={{ alignItems: 'flex-end' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-            <Text style={[styles.smallMuted, { marginRight: 8 }]}>Tema: {currentTheme === 'dark' ? 'Escuro' : 'Claro'}</Text>
-			<Switch
-				value={currentTheme === 'dark'}
-				onValueChange={toggleTheme}
-			/>
-          </View>
+          <Text style={[styles.smallMuted, { marginRight: 8, color: isDark ? styles.smallMuted.color : '#333' }]}>Tema: {currentTheme === 'dark' ? 'Escuro' : 'Claro'}</Text>
+          <Switch
+            value={currentTheme === 'dark'}
+            onValueChange={toggleTheme}
+            trackColor={{ false: "#767577", true: "#81b0ff" }}
+            thumbColor={isDark ? "#f4f3f4" : "#f4f3f4"}
+          />
         </View>
       </View>
 
@@ -455,12 +500,12 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
           {errors.dose && <Text style={styles.errorText}>{errors.dose}</Text>}
 
           <Text style={[styles.smallMuted, { marginBottom: 4, marginTop: 4, color: finalScheme === 'dark' ? '#E6EEF8' : '#333', fontSize: 14 }]}>Frequência (a cada quantas horas?)</Text>
-          <View style={[styles.input, { padding: 0, height: 48 }]}>
+          <View style={[styles.input, { padding: 0, height: 48, backgroundColor: styles.input.backgroundColor, borderColor: styles.input.borderColor }]}>
             <Picker
               selectedValue={frequenciaInterval}
               onValueChange={(itemValue) => setFrequenciaInterval(itemValue)}
-              style={{ color: finalScheme === 'dark' ? '#E6EEF8' : '#333' }}
-              itemStyle={{ color: finalScheme === 'dark' ? '#E6EEF8' : '#333' }}
+              style={{ color: finalScheme === 'dark' ? styles.sectionTitle.color : '#333' }}
+              itemStyle={{ color: finalScheme === 'dark' ? styles.sectionTitle.color : '#333' }}
             >
               {frequencyOptions.map(hour => (
                 <Picker.Item key={hour} label={`${hour} hora(s)`} value={hour} />
@@ -494,11 +539,26 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
 
       <View style={localStyles.listHeader}>
         <Text style={styles.sectionTitle}>Minhas Medicações</Text>
-        {medications.length > 0 && (
-          <TouchableOpacity style={styles.clearButton} onPress={clearAllMedications}>
-            <Text style={styles.clearButtonText}>Apagar Tudo</Text>
-          </TouchableOpacity>
-        )}
+        
+        <View style={localStyles.listActions}>
+             {/* BOTÃO DE ATUALIZAÇÃO MANUAL (roxo) */}
+            <TouchableOpacity 
+                onPress={() => {
+                    Alert.alert('Atualizado', 'Lista e horários recalculados manualmente.');
+                    setCurrentTimeTick(Date.now()); // Força o recálculo
+                }} 
+                style={[styles.clearButton, { backgroundColor: '#8A2BE2', marginRight: 10 }]} // Roxo
+            >
+                <MaterialIcons name="refresh" size={18} color="#fff" />
+            </TouchableOpacity>
+
+            {medications.length > 0 && (
+                <TouchableOpacity style={styles.clearButton} onPress={clearAllMedications}>
+                    <Text style={styles.clearButtonText}>Apagar Tudo</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+
       </View>
 
       <FlatList
@@ -516,6 +576,11 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
       <Animated.View pointerEvents="none" style={[localStyles.toast, { transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-60, 20] }) }], opacity: toastAnim }]}>
         <Text style={{ color: '#fff', fontWeight: '700' }}>✔️ Ação realizada</Text>
       </Animated.View>
+      
+      {/* RÓTULO DE VERSÃO */}
+      <View style={localStyles.versionContainer}>
+          <Text style={styles.smallMuted}>Versão: V01.05.18</Text>
+      </View>
 
       {/* MODAL LATERAL DE PERFIL */}
       <Modal
@@ -524,6 +589,7 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
         visible={isProfileModalVisible}
         onRequestClose={() => setIsProfileModalVisible(false)}
       >
+        {/* Passa o esquema do tema para que a ProfileScreen tenha o tema correto */}
         <ProfileScreen 
           user={user} 
           onBack={() => setIsProfileModalVisible(false)} 
@@ -537,8 +603,38 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
 }
 
 const localStyles = StyleSheet.create({
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center',
+    justifyContent: 'space-between', 
+    marginBottom: 10,
+    marginTop: 0,
+  },
+  profileButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+  },
+  profileImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  versionContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 15,
+    right: 15,
+    paddingVertical: 5,
+    alignItems: 'center',
+  },
   formContainer: { backgroundColor: 'transparent', borderRadius: 8, padding: 10, marginBottom: 12 },
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, marginBottom: 8 },
+  listActions: { flexDirection: 'row', alignItems: 'center' }, // Novo container para os botões de ação
   saveButton: { backgroundColor: '#1E90FF', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 8 },
   saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   toast: { position: 'absolute', left: 16, right: 16, padding: 10, backgroundColor: '#28A745', borderRadius: 8, alignItems: 'center', top: 8, zIndex: 999, elevation: 6 },

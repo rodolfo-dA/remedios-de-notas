@@ -1,16 +1,17 @@
 // screens/CreateProfileScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, useColorScheme } from 'react-native';
 import useGlobalStyles from '../styles/globalStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CreateProfileScreen({ onCancel, onProfileCreated }) {
-  const styles = useGlobalStyles();
+  const scheme = useColorScheme();
+  const styles = useGlobalStyles(scheme);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const isDark = styles.container.backgroundColor === '#0B1220';
+  const isDark = scheme === 'dark';
 
   const handleCreateProfile = async () => {
     setError('');
@@ -34,7 +35,8 @@ export default function CreateProfileScreen({ onCancel, onProfileCreated }) {
       // Verifica se o perfil mestre já existe
       const existingProfile = await AsyncStorage.getItem('@user_profile');
       if (existingProfile) {
-        Alert.alert("Erro", "Um perfil já existe. Por favor, faça login.");
+        // Mantido o comportamento de conta única
+        Alert.alert("Erro", "Um perfil já existe. Para criar um novo, apague os dados de usuário na tela de login.");
         onCancel();
         return;
       }
@@ -43,7 +45,7 @@ export default function CreateProfileScreen({ onCancel, onProfileCreated }) {
       const newProfile = { 
           username: username.trim(), 
           password,
-          photoUri: null, 
+          photoUri: null, // Novo perfil inicia sem foto
       };
       
       await AsyncStorage.setItem('@user_profile', JSON.stringify(newProfile));
@@ -59,11 +61,12 @@ export default function CreateProfileScreen({ onCancel, onProfileCreated }) {
 
   return (
     <KeyboardAvoidingView 
-      style={styles.container} 
+      // Fundo da KeyboardAvoidingView é a cor de fundo do tema
+      style={{ flex: 1, backgroundColor: isDark ? '#0B1220' : '#F7F9FC' }} 
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView contentContainerStyle={localStyles.scrollContainer}>
-        <Text style={[styles.headerTitle, { marginBottom: 30 }]}>Criar Novo Perfil</Text>
+      <ScrollView contentContainerStyle={localStyles.scrollContainer} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.headerTitle, { textAlign: 'center', marginBottom: 50 }]}>Criar Novo Perfil</Text>
         
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -102,7 +105,7 @@ export default function CreateProfileScreen({ onCancel, onProfileCreated }) {
           style={localStyles.cancelButton} 
           onPress={onCancel}
         >
-          <Text style={localStyles.cancelText}>Cancelar e Voltar</Text>
+          <Text style={[localStyles.cancelText, { color: isDark ? '#7FDBFF' : '#1E90FF' }]}>Cancelar e Voltar</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

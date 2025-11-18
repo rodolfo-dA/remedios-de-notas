@@ -1,6 +1,6 @@
 // screens/ProfileScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Modal, useColorScheme } from 'react-native';
 import useGlobalStyles from '../styles/globalStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker'; 
@@ -8,8 +8,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 // --- SUB-COMPONENTE: MODAL DE ALTERAÇÃO DE SENHA ---
 const ChangePasswordModal = ({ isVisible, onCancel, user, onPasswordUpdated }) => {
-    const styles = useGlobalStyles();
-    const isDark = styles.container.backgroundColor === '#0B1220';
+    const scheme = useColorScheme();
+    const styles = useGlobalStyles(scheme);
+    const isDark = scheme === 'dark';
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -58,8 +59,9 @@ const ChangePasswordModal = ({ isVisible, onCancel, user, onPasswordUpdated }) =
     return (
         <Modal transparent animationType="fade" visible={isVisible} onRequestClose={onCancel}>
             <View style={modalStyles.modalOverlay}>
+                {/* Aplica o tema escuro ao modal box */}
                 <View style={[modalStyles.modalBox, { backgroundColor: isDark ? '#0F1724' : '#fff' }]}>
-                    <Text style={[styles.sectionTitle, { color: isDark ? '#E6EEF8' : '#333', marginBottom: 15 }]}>Alterar Senha</Text>
+                    <Text style={[styles.sectionTitle, { color: isDark ? styles.sectionTitle.color : '#333', marginBottom: 15 }]}>Alterar Senha</Text>
 
                     <TextInput 
                         style={styles.input} 
@@ -100,7 +102,7 @@ const ChangePasswordModal = ({ isVisible, onCancel, user, onPasswordUpdated }) =
 
                         <TouchableOpacity 
                             style={[modalStyles.modalButton, { backgroundColor: '#4CAF50' }]} 
-                            onPress={handleChangePassword}
+                            on onPress={handleChangePassword}
                         >
                             <Text style={modalStyles.modalButtonText}>Confirmar</Text>
                         </TouchableOpacity>
@@ -113,9 +115,10 @@ const ChangePasswordModal = ({ isVisible, onCancel, user, onPasswordUpdated }) =
 // --------------------------------------------------------
 
 export default function ProfileScreen({ user, onBack, onLogout, onUpdateUser }) {
-    const styles = useGlobalStyles();
+    const scheme = useColorScheme();
+    const styles = useGlobalStyles(scheme);
     const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
-    const isDark = styles.container.backgroundColor === '#0B1220';
+    const isDark = scheme === 'dark';
 
     // Acessa a URI da foto diretamente do objeto user
     const [photoUri, setPhotoUri] = useState(user.photoUri); 
@@ -139,7 +142,7 @@ export default function ProfileScreen({ user, onBack, onLogout, onUpdateUser }) 
         }
     };
     
-    // Salva a URI da foto e atualiza o estado em App.js
+    // Salva a URI da foto e atualiza o estado em App.js (Persistência)
     const savePhotoUri = async (uri) => {
         try {
             const updatedProfile = { ...user, photoUri: uri };
@@ -167,16 +170,17 @@ export default function ProfileScreen({ user, onBack, onLogout, onUpdateUser }) 
                 
                 {/* Botão de Voltar/Fechar */}
                 <TouchableOpacity onPress={onBack} style={localStyles.backButton}>
-                    <MaterialIcons name="arrow-back" size={24} color={isDark ? '#E6EEF8' : '#333'} />
-                    <Text style={[styles.sectionTitle, { marginLeft: 5, color: isDark ? '#E6EEF8' : '#333' }]}>Voltar</Text>
+                    <MaterialIcons name="arrow-back" size={24} color={isDark ? styles.sectionTitle.color : '#333'} />
+                    <Text style={[styles.sectionTitle, { marginLeft: 5, color: isDark ? styles.sectionTitle.color : '#333' }]}>Voltar</Text>
                 </TouchableOpacity>
 
                 <Text style={[styles.headerTitle, { marginBottom: 30, marginTop: 10 }]}>Meu Perfil</Text>
                 
                 {/* Visualização e Botões da Foto */}
-                <View style={[localStyles.photoContainer, { borderColor: isDark ? '#1F2A37' : '#E0E0E0' }]}>
+                <View style={[localStyles.photoContainer, { borderColor: isDark ? styles.input.borderColor : '#E0E0E0', backgroundColor: isDark ? '#0F1724' : '#fff' }]}>
                     <Image
-                        source={photoUri ? { uri: photoUri } : require('../assets/default_avatar.png')} 
+                        // Mascote como placeholder default. O estilo localStyles.profileImage não tem mais background cinza.
+                        source={photoUri ? { uri: photoUri } : require('../assets/mascote.png')} 
                         style={localStyles.profileImage}
                     />
                     <Text style={[styles.sectionTitle, { marginTop: 15, color: isDark ? '#7FDBFF' : '#1E90FF' }]}>@{user.username}</Text>
@@ -191,10 +195,10 @@ export default function ProfileScreen({ user, onBack, onLogout, onUpdateUser }) 
                 </View>
 
                 {/* Opção de Alterar Senha */}
-                <View style={[localStyles.infoBox, { borderColor: isDark ? '#1F2A37' : '#E0E0E0' }]}>
+                <View style={[localStyles.infoBox, { borderColor: isDark ? styles.input.borderColor : '#E0E0E0', backgroundColor: isDark ? '#0F1724' : '#fff' }]}>
                     <Text style={[styles.sectionTitle, { marginBottom: 10, color: isDark ? '#7FDBFF' : '#1E90FF' }]}>Configurações de Conta</Text>
                     <TouchableOpacity style={[localStyles.settingButton, { backgroundColor: isDark ? '#1F2A37' : '#F7F7F7', borderColor: isDark ? '#1F2A37' : '#eee' }]} onPress={() => setIsPasswordModalVisible(true)}>
-                        <Text style={[localStyles.settingButtonText, { color: isDark ? '#E6EEF8' : '#333' }]}>Alterar Senha</Text>
+                        <Text style={[localStyles.settingButtonText, { color: isDark ? styles.sectionTitle.color : '#333' }]}>Alterar Senha</Text>
                         <MaterialIcons name="keyboard-arrow-right" size={24} color={isDark ? '#9AA7B2' : '#666'} />
                     </TouchableOpacity>
                 </View>
@@ -242,7 +246,7 @@ const localStyles = StyleSheet.create({
         width: 120,
         height: 120,
         borderRadius: 60,
-        backgroundColor: '#ccc',
+        // CORREÇÃO: Removido backgroundColor: '#ccc' para não sobrepor o mascote com cinza.
         borderWidth: 3,
         borderColor: '#1E90FF',
     },

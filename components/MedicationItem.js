@@ -1,13 +1,15 @@
 // components/MedicationItem.js
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
+import useGlobalStyles from '../styles/globalStyles';
 
 // Recebe item, onDelete(id), onEdit(id)
 export default function MedicationItem({ item, onDelete, onEdit }) {
-  if (!item) return null; // evita crash se o FlatList passar undefined
+  if (!item) return null;
 
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
+  const globalStyles = useGlobalStyles(scheme);
 
   // Helper: transforma "HH:MM" em minutos do dia
   const toMinutes = (t) => {
@@ -55,7 +57,7 @@ export default function MedicationItem({ item, onDelete, onEdit }) {
     return diffHours >= 0 && diffHours <= 4;
   })();
 
-  const alertColor = isTimeNear ? '#FFD700' : (dark ? '#2A2F39' : '#E0E0E0');
+  const alertColor = isTimeNear ? '#FFD700' : (dark ? globalStyles.input.borderColor : '#E0E0E0');
   const borderWidth = isTimeNear ? 2 : 1;
 
   return (
@@ -68,8 +70,8 @@ export default function MedicationItem({ item, onDelete, onEdit }) {
 
       <View style={styles.itemHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.itemTitle, { color: dark ? '#E6EEF8' : '#444' }]}>{item.nome} - {item.dose}</Text>
-          <Text style={styles.small}>{`⏰ Próximo: ${nextHorario} • ${item.frequencia || ''}`}</Text>
+          <Text style={[styles.itemTitle, { color: dark ? globalStyles.sectionTitle.color : '#444' }]}>{item.nome} - {item.dose}</Text>
+          <Text style={[styles.small, { color: dark ? globalStyles.smallMuted.color : '#777' }]}>{`⏰ Próximo: ${nextHorario} • ${item.frequencia || ''}`}</Text>
         </View>
 
         <View style={{ flexDirection: 'column' }}>
@@ -84,14 +86,14 @@ export default function MedicationItem({ item, onDelete, onEdit }) {
       </View>
 
       <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>Horários:</Text>
-        <Text style={styles.infoValue}>{item.horarios || '—'}</Text>
+        <Text style={[styles.infoLabel, { color: dark ? globalStyles.smallMuted.color : '#555' }]}>Horários:</Text>
+        <Text style={[styles.infoValue, { color: dark ? globalStyles.sectionTitle.color : '#000' }]}>{item.horarios || '—'}</Text>
       </View>
 
       {item.anotacoes ? (
         <>
-          <Text style={styles.notesTitle}>Observações:</Text>
-          <Text style={styles.notesText}>{item.anotacoes}</Text>
+          <Text style={[styles.notesTitle, { color: dark ? globalStyles.headerTitle.color : '#1E90FF' }]}>Observações:</Text>
+          <Text style={[styles.notesText, { color: dark ? globalStyles.smallMuted.color : '#666' }]}>{item.anotacoes}</Text>
         </>
       ) : null}
     </View>
