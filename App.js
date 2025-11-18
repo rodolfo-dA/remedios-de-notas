@@ -1,20 +1,19 @@
 // App.js
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, StatusBar, useColorScheme } from 'react-native';
+import { SafeAreaView, StatusBar, Platform, useColorScheme } from 'react-native';
 import HomeScreen from './screens/HomeScreen';
 import SplashScreen from './screens/SplashScreen';
-import LoginScreen from './screens/LoginScreen';
+import LoginScreen from './screens/LoginScreen'; 
 import * as Notifications from 'expo-notifications';
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "./firebaseConfig";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  // Objeto do usuário logado ou null
   const [loggedInUser, setLoggedInUser] = useState(null); 
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true); 
   const systemScheme = useColorScheme();
-
-  // CONFIGURAR NOTIFICAÇÕES
+  
   useEffect(() => {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -27,65 +26,58 @@ export default function App() {
     (async () => {
       try {
         await Notifications.requestPermissionsAsync();
+        
+        // 1. Verificar se há um usuário salvo para login automático (manter a sessão)
+        const savedUserJson = await AsyncStorage.getItem('@last_logged_in_user');
+        if (savedUserJson) {
+            setLoggedInUser(JSON.parse(savedUserJson));
+        }
+        
       } catch (e) {
-        console.warn("Erro ao pedir permissões:", e);
+        console.warn('Notification or Auth Check error:', e);
+      } finally {
+        setIsLoadingAuth(false);
       }
     })();
   }, []);
-
-  // ▶️ MONITORAR LOGIN DO FIREBASE
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("Firebase Auth mudou:", user);
-
-      if (user) {
-        // usuário logado
-        setLoggedInUser({
-          email: user.email,
-          uid: user.uid,
-        });
-      } else {
-        // usuário deslogado
-        setLoggedInUser(null);
-      }
-
-      setIsLoadingAuth(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // SAIR DA CONTA
+  
+  // Função passada para LoginScreen/CreateProfile para logar o usuário
+  const handleAuthentication = async (userProfile) => {
+    // Guarda o perfil logado no estado e no AsyncStorage para persistência.
+    await AsyncStorage.setItem('@last_logged_in_user', JSON.stringify(userProfile));
+    setLoggedInUser(userProfile);
+  };
+  
+  // Função para deslogar (voltar para a tela de login/trocar usuário)
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.log("Erro ao deslogar:", error);
-    }
+    // Remove o usuário logado atualmente (mas mantém o perfil cadastrado)
+    await AsyncStorage.removeItem('@last_logged_in_user');
+    setLoggedInUser(null);
   };
 
   if (showSplash || isLoadingAuth) {
     return (
       <SafeAreaView style={{ flex: 1 }}>
-        <StatusBar barStyle={systemScheme === "dark" ? "light-content" : "dark-content"} />
-        <SplashScreen onFinish={() => setShowSplash(false)} />
+        <StatusBar barStyle={systemScheme === 'dark' ? 'light-content' : 'dark-content'} />
+        <SplashScreen onFinish={() => setShowSplash(false)} /> 
       </SafeAreaView>
     );
   }
 
+  // Renderiza Login ou Home
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <StatusBar barStyle={systemScheme === "dark" ? "light-content" : "dark-content"} />
-      
+      <StatusBar barStyle={systemScheme === 'dark' ? 'light-content' : 'dark-content'} />
       {loggedInUser ? (
+        // Passa o usuário logado e as funções para o HomeScreen
         <HomeScreen 
-          user={loggedInUser}
-          onLogout={handleLogout}
-        />
+            user={loggedInUser} 
+            onLogout={handleLogout} 
+            onUpdateUser={handleAuthentication} // Usado para atualizar a senha/foto
+        /> 
       ) : (
-        <LoginScreen 
-          onAuthenticate={(data) => console.log("LoginScreen chamou:", data)}
-        />
+        // LoginScreen usa a função de autenticação
+        <LoginScreen onAuthenticate={handleAuthentication} />
       )}
     </SafeAreaView>
   );
