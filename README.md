@@ -68,6 +68,7 @@ Inicie o projeto com:
 
 ```bash
 npm start
+```
 
 ### Testes
 
@@ -75,4 +76,4 @@ O Remedios-de-notas utiliza o framework de teste (test_framework). Execute o con
 
 ```bash
 npm test
-
+```
