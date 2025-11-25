@@ -7,10 +7,14 @@ import LoginScreen from './screens/LoginScreen';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// 🚀 CORREÇÃO: Usar um único estado de carregamento para simplificar a lógica.
+// O tempo de 2600ms deve ser respeitado antes de setar isLoadingAuth para false.
+const MINIMUM_DISPLAY_TIME = 2600; 
+
 export default function App() {
   const [loggedInUser, setLoggedInUser] = useState(null); 
   const [isLoadingAuth, setIsLoadingAuth] = useState(true); 
-  const [splashAnimationFinished, setSplashAnimationFinished] = useState(false);
+  // Removido: const [splashAnimationFinished, setSplashAnimationFinished] = useState(false);
   const systemScheme = useColorScheme();
   
   useEffect(() => {
@@ -23,8 +27,6 @@ export default function App() {
     });
 
     (async () => {
-      // 🚀 CORREÇÃO: Sincroniza o timer com a duração exata da animação total (1500ms GIF + 800ms Fade Mascote + 300ms Fade Tela = 2600ms).
-      const MINIMUM_DISPLAY_TIME = 2600; 
       const displayTimer = new Promise(resolve => setTimeout(resolve, MINIMUM_DISPLAY_TIME));
       
       try {
@@ -36,8 +38,11 @@ export default function App() {
         }
         
       } catch (e) {
+        // AVISO: O 'finally' deve vir após 'await displayTimer' para garantir o tempo mínimo.
         console.warn('Notification or Auth Check error:', e);
       } finally {
+        // 🚀 CORREÇÃO: Garante que o timer de exibição mínima SEMPRE seja aguardado.
+        // Isto resolve a race condition da splashscreen.
         await displayTimer; 
         setIsLoadingAuth(false);
       }
@@ -45,6 +50,9 @@ export default function App() {
   }, []);
   
   const handleAuthentication = async (userProfile) => {
+    // 🚀 MELHORIA: Garante que o perfil mestre também seja atualizado, 
+    // embora o Login/Create já façam isso, garante consistência em `onUpdateUser` do HomeScreen.
+    await AsyncStorage.setItem('@user_profile', JSON.stringify(userProfile));
     await AsyncStorage.setItem('@last_logged_in_user', JSON.stringify(userProfile));
     setLoggedInUser(userProfile);
   };
@@ -54,13 +62,13 @@ export default function App() {
     setLoggedInUser(null);
   };
 
-  if (isLoadingAuth || !splashAnimationFinished) {
+  // 🚀 MUDANÇA: A renderização agora depende APENAS do estado de carregamento de Auth/Splash.
+  if (isLoadingAuth) {
     return (
       <SafeAreaView style={{ flex: 1 }}>
         <StatusBar barStyle={systemScheme === 'dark' ? 'light-content' : 'dark-content'} />
-        <SplashScreen onFinish={() => {
-            setSplashAnimationFinished(true); 
-        }} /> 
+        {/* SplashScreen não precisa mais de onFinish, ela roda a animação pelo tempo mínimo */}
+        <SplashScreen /> 
       </SafeAreaView>
     );
   }

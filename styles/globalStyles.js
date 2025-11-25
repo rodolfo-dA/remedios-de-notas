@@ -49,6 +49,19 @@ export default function useGlobalStyles(scheme) {
       fontSize: 18,
       fontWeight: 'bold',
     },
+    // 🚀 NOVO ESTILO: Botão de Log de Dose
+    logDoseButton: {
+        backgroundColor: '#4CAF50', // Verde
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 6,
+        marginTop: 6,
+        alignItems: 'center',
+    },
+    logDoseButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+    },
     clearButton: {
       backgroundColor: '#FF6347',
       paddingHorizontal: 10,

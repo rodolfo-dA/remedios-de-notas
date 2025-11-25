@@ -3,11 +3,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
 import useGlobalStyles from '../styles/globalStyles';
 
-// Recebe item, onDelete(id), onEdit(id)
-export default function MedicationItem({ item, onDelete, onEdit }) {
+// 🚀 MUDANÇA: Recebe o scheme (tema) como prop
+export default function MedicationItem({ item, onDelete, onEdit, scheme }) { 
   if (!item) return null;
 
-  const scheme = useColorScheme();
+  // 🚀 CORREÇÃO: Usa o scheme passado via prop, em vez de useColorScheme()
   const dark = scheme === 'dark';
   const globalStyles = useGlobalStyles(scheme);
 

@@ -7,8 +7,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { MaterialIcons } from '@expo/vector-icons'; 
 
 // --- SUB-COMPONENTE: MODAL DE ALTERAÇÃO DE SENHA ---
-const ChangePasswordModal = ({ isVisible, onCancel, user, onPasswordUpdated }) => {
-    const scheme = useColorScheme();
+// 🚀 MUDANÇA: Recebe o scheme como prop
+const ChangePasswordModal = ({ isVisible, onCancel, user, onPasswordUpdated, scheme }) => {
+    // 🚀 CORREÇÃO: Usa o scheme passado via prop
     const styles = useGlobalStyles(scheme);
     const isDark = scheme === 'dark';
     const [currentPassword, setCurrentPassword] = useState('');
@@ -114,13 +115,13 @@ const ChangePasswordModal = ({ isVisible, onCancel, user, onPasswordUpdated }) =
 };
 // --------------------------------------------------------
 
-export default function ProfileScreen({ user, onBack, onLogout, onUpdateUser }) {
-    const scheme = useColorScheme();
+// 🚀 MUDANÇA: Recebe o scheme como prop
+export default function ProfileScreen({ user, onBack, onLogout, onUpdateUser, scheme }) { 
+    // 🚀 CORREÇÃO: Usa o scheme passado via prop, em vez de useColorScheme()
     const styles = useGlobalStyles(scheme);
     const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
-    const isDark = scheme === 'dark';
+    const isDark = scheme === 'dark'; // Usa a prop scheme para definir isDark
 
-    // Acessa a URI da foto diretamente do objeto user
     const [photoUri, setPhotoUri] = useState(user.photoUri); 
 
     const pickImage = async () => {
@@ -220,6 +221,7 @@ export default function ProfileScreen({ user, onBack, onLogout, onUpdateUser }) 
                 onCancel={() => setIsPasswordModalVisible(false)}
                 user={user}
                 onPasswordUpdated={handlePasswordUpdate}
+                scheme={scheme} // <--- Passa o tema para o subcomponente
             />
         </View>
     );
@@ -246,7 +248,6 @@ const localStyles = StyleSheet.create({
         width: 120,
         height: 120,
         borderRadius: 60,
-        // CORREÇÃO: Removido backgroundColor: '#ccc' para não sobrepor o mascote com cinza.
         borderWidth: 3,
         borderColor: '#1E90FF',
     },

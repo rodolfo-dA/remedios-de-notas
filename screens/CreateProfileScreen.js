@@ -49,6 +49,9 @@ export default function CreateProfileScreen({ onCancel, onProfileCreated }) {
       };
       
       await AsyncStorage.setItem('@user_profile', JSON.stringify(newProfile));
+      // 🚀 CORREÇÃO CRÍTICA: Salvar o usuário logado para que o App.js o carregue e mude a tela
+      await AsyncStorage.setItem('@last_logged_in_user', JSON.stringify(newProfile));
+
 
       Alert.alert("Sucesso", "Perfil criado! Você será logado automaticamente.");
       onProfileCreated(newProfile); // Loga o usuário
@@ -97,6 +100,7 @@ export default function CreateProfileScreen({ onCancel, onProfileCreated }) {
           onChangeText={setConfirmPassword} 
         />
 
+        {/* 🚀 CORREÇÃO: Usar o estilo global de botão `styles.addButton` */}
         <TouchableOpacity style={styles.addButton} onPress={handleCreateProfile}>
           <Text style={styles.addButtonText}>CRIAR CONTA</Text>
         </TouchableOpacity>

@@ -17,7 +17,7 @@ import {
   Alert,
   Switch,
   useColorScheme,
-  Modal, // Importado para o Modal de Perfil
+  Modal, 
   Image,
 } from 'react-native';
 import MedicationItem from '../components/MedicationItem';
@@ -26,9 +26,9 @@ import useGlobalStyles from '../styles/globalStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import uuid from 'react-native-uuid';
-import { Picker } from '@react-native-picker/picker'; // Para a seleção de frequência
-import { MaterialIcons } from '@expo/vector-icons'; // Para o ícone de perfil
-import ProfileScreen from './ProfileScreen'; // Importa a nova tela de perfil
+import { Picker } from '@react-native-picker/picker'; 
+import { MaterialIcons } from '@expo/vector-icons'; 
+import ProfileScreen from './ProfileScreen'; 
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -36,7 +36,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const STORAGE_KEY = '@medications_v1';
 const THEME_STORAGE_KEY = '@app_theme';
-const NOTIFICATION_EARLY_MINUTES = 20; // Lembrete 20 minutos antes da dose
+const NOTIFICATION_EARLY_MINUTES = 20; 
 
 // --- FUNÇÕES DE LÓGICA DE HORÁRIOS ---
 function timeToMinutes(t) {
@@ -109,7 +109,7 @@ async function scheduleNotificationsForMedication(medId, doseTimes, nomeMed) {
       const trigger = { 
         hour: notificationTime.hour, 
         minute: notificationTime.minute, 
-        repeats: true // Agenda recorrência diária para esta hora de notificação
+        repeats: true 
       };
       
       const id = await Notifications.scheduleNotificationAsync({
@@ -143,18 +143,15 @@ async function cancelNotificationIds(ids = []) {
 
 
 // --- COMPONENTE PRINCIPAL ---
-export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe props de autenticação
+export default function HomeScreen({ user, onLogout, onUpdateUser }) { 
   const systemScheme = useColorScheme();
   const [currentTheme, setCurrentTheme] = useState('light'); 
 
-  // NOVO ESTADO: Usado para forçar o recálculo dos horários e a reordenação da lista
   const [currentTimeTick, setCurrentTimeTick] = useState(Date.now()); 
 
-  // Estados do Novo Formulário
   const [frequenciaInterval, setFrequenciaInterval] = useState(8); 
   const [primeiraDoseTime, setPrimeiraDoseTime] = useState('08:00'); 
 
-  // Estados Antigos
   const [medications, setMedications] = useState([]);
   const [nome, setNome] = useState('');
   const [dose, setDose] = useState('');
@@ -168,7 +165,6 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
-  // Novo estado para o Modal de Perfil
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false); 
   
   const toastAnim = useRef(new Animated.Value(0)).current;
@@ -199,7 +195,7 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
     })();
   }, [currentTheme]);
 
-  const finalScheme = currentTheme;
+  const finalScheme = currentTheme; 
   const styles = useGlobalStyles(finalScheme);
   const isDark = finalScheme === 'dark';
 
@@ -211,7 +207,6 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
             const saved = JSON.parse(raw);
             const normalized = (saved || []).map(m => {
                 const times = m.horarios ? m.horarios.split(',').map(s => s.trim()) : [];
-                // RECALCULA O PRÓXIMO HORÁRIO COM BASE NO TICK ATUAL
                 const proximo = findNextDoseTime(times); 
                 return {
                     id: m.id || uuid.v4(),
@@ -220,7 +215,7 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
                     frequencia: m.frequencia || '', 
                     horarios: m.horarios || '', 
                     anotacoes: m.anotacoes || '',
-                    proximoHorario: proximo, // <-- Atualizado
+                    proximoHorario: proximo, 
                     notificationIds: m.notificationIds || [],
                 };
             });
@@ -235,12 +230,10 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
   useEffect(() => {
     loadAndRecalculateMedications(); 
 
-    // Define um intervalo para atualizar o "tick" a cada 60 segundos (1 minuto)
     const interval = setInterval(() => {
         setCurrentTimeTick(Date.now());
     }, 60000); 
 
-    // Limpeza
     return () => clearInterval(interval);
   }, [loadAndRecalculateMedications]);
 
@@ -250,14 +243,12 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
 
     const getMinutesFromNow = (timeString) => {
         const min = timeToMinutes(timeString || '23:59');
-        // Se o horário já passou hoje, consideramos que ele é amanhã (min + 24h)
         return min >= nowMinutes ? min - nowMinutes : (min + 24 * 60) - nowMinutes;
     };
     
     const aUrgency = getMinutesFromNow(a.proximoHorario);
     const bUrgency = getMinutesFromNow(b.proximoHorario);
 
-    // Se a urgência for igual, ordena pelo nome para estabilidade
     if (aUrgency === bUrgency) {
         return a.nome.localeCompare(b.nome);
     }
@@ -504,8 +495,10 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
             <Picker
               selectedValue={frequenciaInterval}
               onValueChange={(itemValue) => setFrequenciaInterval(itemValue)}
-              style={{ color: finalScheme === 'dark' ? styles.sectionTitle.color : '#333' }}
-              itemStyle={{ color: finalScheme === 'dark' ? styles.sectionTitle.color : '#333' }}
+              // 🚀 CORREÇÃO PRINCIPAL: Força a cor do texto a ser ESCURA (#333) em ambos os modos, 
+              // garantindo contraste contra o fundo nativo claro do dropdown.
+              style={{ color: '#333' }}
+              itemStyle={{ color: '#333' }}
             >
               {frequencyOptions.map(hour => (
                 <Picker.Item key={hour} label={`${hour} hora(s)`} value={hour} />
@@ -545,9 +538,9 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
             <TouchableOpacity 
                 onPress={() => {
                     Alert.alert('Atualizado', 'Lista e horários recalculados manualmente.');
-                    setCurrentTimeTick(Date.now()); // Força o recálculo
+                    setCurrentTimeTick(Date.now()); 
                 }} 
-                style={[styles.clearButton, { backgroundColor: '#8A2BE2', marginRight: 10 }]} // Roxo
+                style={[styles.clearButton, { backgroundColor: '#8A2BE2', marginRight: 10 }]} 
             >
                 <MaterialIcons name="refresh" size={18} color="#fff" />
             </TouchableOpacity>
@@ -564,7 +557,7 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
       <FlatList
         data={sortedMedications}
         renderItem={({ item }) => (
-          <MedicationItem item={item} onDelete={deleteMedication} onEdit={handleEdit} />
+          <MedicationItem item={item} onDelete={deleteMedication} onEdit={handleEdit} scheme={finalScheme} /> 
         )}
         keyExtractor={item => item.id}
         ListEmptyComponent={<Text style={styles.emptyListText}>Nenhuma medicação registrada.</Text>}
@@ -589,12 +582,12 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) { // Recebe
         visible={isProfileModalVisible}
         onRequestClose={() => setIsProfileModalVisible(false)}
       >
-        {/* Passa o esquema do tema para que a ProfileScreen tenha o tema correto */}
         <ProfileScreen 
           user={user} 
           onBack={() => setIsProfileModalVisible(false)} 
           onLogout={onLogout} 
           onUpdateUser={onUpdateUser}
+          scheme={finalScheme} 
         />
       </Modal>
 
@@ -634,7 +627,7 @@ const localStyles = StyleSheet.create({
   },
   formContainer: { backgroundColor: 'transparent', borderRadius: 8, padding: 10, marginBottom: 12 },
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, marginBottom: 8 },
-  listActions: { flexDirection: 'row', alignItems: 'center' }, // Novo container para os botões de ação
+  listActions: { flexDirection: 'row', alignItems: 'center' }, 
   saveButton: { backgroundColor: '#1E90FF', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 8 },
   saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   toast: { position: 'absolute', left: 16, right: 16, padding: 10, backgroundColor: '#28A745', borderRadius: 8, alignItems: 'center', top: 8, zIndex: 999, elevation: 6 },
