@@ -172,14 +172,16 @@ export default function LoginScreen({ onAuthenticate }) {
         />
 
         <TouchableOpacity style={styles.addButton} onPress={handleLogin}>
-          <Text style={styles.addButtonText}>ENTRAR</Text>
+          {/* 🚀 CORREÇÃO: Adiciona numberOfLines para garantir que o texto 'ENTRAR' não quebre/corte */}
+          <Text style={styles.addButtonText} numberOfLines={1}>ENTRAR</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={localStyles.createProfileButton} 
           onPress={() => setIsCreating(true)}
         >
-          <Text style={[localStyles.createProfileText, { color: isDark ? '#7FDBFF' : '#1E90FF' }]}>Criar Perfil</Text>
+          {/* 🚀 CORREÇÃO: Adiciona numberOfLines para garantir que o texto 'Criar Perfil' não quebre/corte */}
+          <Text style={[localStyles.createProfileText, { color: isDark ? '#7FDBFF' : '#1E90FF' }]} numberOfLines={1}>Criar Perfil</Text>
         </TouchableOpacity>
         
         {__DEBUG_MODE__ && (

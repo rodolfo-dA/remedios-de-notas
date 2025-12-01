@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import MedicationItem from '../components/MedicationItem';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import MedicationHistoryModal from '../components/MedicationHistoryModal'; 
 import useGlobalStyles from '../styles/globalStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
@@ -100,16 +101,26 @@ function findNextDoseTime(doseTimes) {
   return nextTime;
 }
 
+// 🚀 CORREÇÃO PRINCIPAL DE NOTIFICAÇÕES
 async function scheduleNotificationsForMedication(medId, doseTimes, nomeMed) {
   try {
     const ids = [];
+    const now = new Date();
+    
     for (const t of doseTimes) {
       const notificationTime = getTimeBefore(t, NOTIFICATION_EARLY_MINUTES); 
       
-      const trigger = { 
-        hour: notificationTime.hour, 
-        minute: notificationTime.minute, 
-        repeats: true 
+      let initialTriggerDate = new Date();
+      initialTriggerDate.setHours(notificationTime.hour, notificationTime.minute, 0, 0);
+
+      // Se o horário de disparo (20 min antes) já passou hoje, agendamos o primeiro disparo para amanhã
+      if (initialTriggerDate < now) {
+          initialTriggerDate.setDate(initialTriggerDate.getDate() + 1);
+      }
+      
+      const finalTrigger = {
+          date: initialTriggerDate,
+          repeats: true,
       };
       
       const id = await Notifications.scheduleNotificationAsync({
@@ -119,7 +130,7 @@ async function scheduleNotificationsForMedication(medId, doseTimes, nomeMed) {
           sound: true, 
           data: { medId } 
         },
-        trigger,
+        trigger: finalTrigger,
       });
       ids.push(id);
     }
@@ -166,6 +177,9 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) {
   const [editingId, setEditingId] = useState(null);
   
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false); 
+  
+  const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
+  const [selectedMedicationForHistory, setSelectedMedicationForHistory] = useState(null);
   
   const toastAnim = useRef(new Animated.Value(0)).current;
 
@@ -230,9 +244,10 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) {
   useEffect(() => {
     loadAndRecalculateMedications(); 
 
+    // Atualiza a cada 30 segundos para manter a lógica do MedicationItem atualizada
     const interval = setInterval(() => {
         setCurrentTimeTick(Date.now());
-    }, 60000); 
+    }, 30000); 
 
     return () => clearInterval(interval);
   }, [loadAndRecalculateMedications]);
@@ -437,6 +452,50 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) {
 
   const frequencyOptions = Array.from({ length: 24 }, (_, i) => i + 1);
 
+  // NOVO: Função para registrar a dose
+  const handleLogDose = async (medId, nextHorario) => {
+      const med = medications.find(m => m.id === medId);
+      if (!med) return;
+      
+      const now = new Date();
+      const doseRecord = {
+          id: uuid.v4(),
+          medId,
+          medicationName: med.nome,
+          targetTime: nextHorario, // Horário que a dose deveria ter sido tomada (HH:MM)
+          timestamp: now.toISOString(), // Horário real da tomada (ISO String)
+      };
+
+      try {
+          const STORAGE_KEY_HISTORY = `@med_history_${medId}`;
+          const rawHistory = await AsyncStorage.getItem(STORAGE_KEY_HISTORY);
+          const history = JSON.parse(rawHistory || '[]');
+          
+          history.push(doseRecord);
+          await AsyncStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+          
+          // Força a atualização da lista para que o MedicationItem recalcule o status (TOMADO)
+          setCurrentTimeTick(Date.now()); 
+          showToast(`Dose de ${med.nome} registrada!`);
+
+      } catch (e) {
+          console.warn('Erro ao registrar dose:', e);
+          Alert.alert('Erro', 'Não foi possível registrar a dose.');
+      }
+  };
+  
+  // NOVO: Funções para o modal de histórico
+  const handleShowHistory = (medication) => {
+    setSelectedMedicationForHistory(medication);
+    setIsHistoryModalVisible(true);
+  };
+  
+  const handleCloseHistory = () => {
+    setIsHistoryModalVisible(false);
+    setSelectedMedicationForHistory(null);
+  };
+
+
   return (
     <View style={styles.container}>
       
@@ -495,8 +554,7 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) {
             <Picker
               selectedValue={frequenciaInterval}
               onValueChange={(itemValue) => setFrequenciaInterval(itemValue)}
-              // 🚀 CORREÇÃO PRINCIPAL: Força a cor do texto a ser ESCURA (#333) em ambos os modos, 
-              // garantindo contraste contra o fundo nativo claro do dropdown.
+              // Força a cor do texto a ser ESCURA (#333) em ambos os modos
               style={{ color: '#333' }}
               itemStyle={{ color: '#333' }}
             >
@@ -547,7 +605,8 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) {
 
             {medications.length > 0 && (
                 <TouchableOpacity style={styles.clearButton} onPress={clearAllMedications}>
-                    <Text style={styles.clearButtonText}>Apagar Tudo</Text>
+                    {/* CORREÇÃO DO BOTÃO: Adiciona numberOfLines para evitar quebra. O estilo de fonte foi reduzido em globalStyles.js */}
+                    <Text style={styles.clearButtonText} numberOfLines={1}>Apagar Tudo</Text>
                 </TouchableOpacity>
             )}
         </View>
@@ -557,7 +616,15 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) {
       <FlatList
         data={sortedMedications}
         renderItem={({ item }) => (
-          <MedicationItem item={item} onDelete={deleteMedication} onEdit={handleEdit} scheme={finalScheme} /> 
+          <MedicationItem 
+            item={item} 
+            onDelete={deleteMedication} 
+            onEdit={handleEdit} 
+            onLogDose={handleLogDose} 
+            onShowHistory={handleShowHistory} 
+            currentTimeTick={currentTimeTick} 
+            scheme={finalScheme} 
+          /> 
         )}
         keyExtractor={item => item.id}
         ListEmptyComponent={<Text style={styles.emptyListText}>Nenhuma medicação registrada.</Text>}
@@ -572,7 +639,7 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) {
       
       {/* RÓTULO DE VERSÃO */}
       <View style={localStyles.versionContainer}>
-          <Text style={styles.smallMuted}>Versão: V01.05.18</Text>
+          <Text style={styles.smallMuted}>Versão: V01.06.00</Text>
       </View>
 
       {/* MODAL LATERAL DE PERFIL */}
@@ -591,6 +658,20 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) {
         />
       </Modal>
 
+      {/* MODAL DE HISTÓRICO - MANTIDO TRANSPARENTE PARA EVITAR FLASH BRANCO */}
+      <Modal
+        animationType="slide"
+        transparent={true} 
+        visible={isHistoryModalVisible}
+        onRequestClose={handleCloseHistory}
+      >
+        <MedicationHistoryModal 
+            medication={selectedMedicationForHistory} 
+            onClose={handleCloseHistory} 
+            scheme={finalScheme} 
+        />
+      </Modal>
+
     </View>
   );
 }
@@ -601,7 +682,7 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between', 
     marginBottom: 10,
-    marginTop: 0,
+    // Removendo o marginTop: 0 para usar o paddingTop do styles.container
   },
   profileButton: {
     width: 38,

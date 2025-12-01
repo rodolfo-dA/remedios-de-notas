@@ -100,16 +100,17 @@ export default function CreateProfileScreen({ onCancel, onProfileCreated }) {
           onChangeText={setConfirmPassword} 
         />
 
-        {/* 🚀 CORREÇÃO: Usar o estilo global de botão `styles.addButton` */}
+        {/* 🚀 CORREÇÃO: Adiciona numberOfLines para garantir que o texto 'CRIAR CONTA' não quebre/corte */}
         <TouchableOpacity style={styles.addButton} onPress={handleCreateProfile}>
-          <Text style={styles.addButtonText}>CRIAR CONTA</Text>
+          <Text style={styles.addButtonText} numberOfLines={1}>CRIAR CONTA</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={localStyles.cancelButton} 
           onPress={onCancel}
         >
-          <Text style={[localStyles.cancelText, { color: isDark ? '#7FDBFF' : '#1E90FF' }]}>Cancelar e Voltar</Text>
+          {/* 🚀 CORREÇÃO: Adiciona numberOfLines para garantir que o texto 'Cancelar e Voltar' não quebre/corte */}
+          <Text style={[localStyles.cancelText, { color: isDark ? '#7FDBFF' : '#1E90FF' }]} numberOfLines={1}>Cancelar e Voltar</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

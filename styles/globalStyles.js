@@ -8,7 +8,8 @@ export default function useGlobalStyles(scheme) {
     container: {
       flex: 1,
       backgroundColor: dark ? '#0B1220' : '#F7F9FC',
-      paddingTop: Platform.OS === 'android' ? 40 : 60,
+      // 🚀 CORREÇÃO: Garante um padding top suficiente para todos os dispositivos.
+      paddingTop: 60, 
       paddingHorizontal: 15,
     },
     headerTitle: {
@@ -16,7 +17,8 @@ export default function useGlobalStyles(scheme) {
       fontWeight: 'bold',
       color: dark ? '#7FDBFF' : '#1E90FF',
       textAlign: 'left',
-      marginBottom: 10,
+      // Aumentado ligeiramente para melhor espaçamento visual
+      marginBottom: 15,
     },
     sectionTitle: {
       fontSize: 18,
@@ -68,10 +70,11 @@ export default function useGlobalStyles(scheme) {
       paddingVertical: 5,
       borderRadius: 5,
     },
+    // 🚀 CORREÇÃO: Reduz o tamanho da fonte para evitar quebra de linha.
     clearButtonText: {
       color: '#fff',
       fontWeight: 'bold',
-      fontSize: 14,
+      fontSize: 13,
     },
     emptyListText: {
       textAlign: 'center',

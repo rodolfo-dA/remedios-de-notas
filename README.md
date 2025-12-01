@@ -1,7 +1,7 @@
 # REMEDIOS-DE-NOTAS
 ### Promovendo uma Saúde Melhor Através de Lembretes Mais Inteligentes
 
-* **Último Commit:** Hoje
+* **Último Commit:** 1/12/2025 (1 de dezembro)
 * **Linguagem Principal:** JavaScript (100.0%)
 * **Número de Linguagens:** 2
 
@@ -17,7 +17,8 @@ Este projeto simplifica o desenvolvimento de ferramentas multiplataforma para ge
 
 * 💊 **Interface de Usuário Personalizável (UI):** Estilos e temas globais garantem uma experiência de usuário consistente e acessível.
 * 🚀 **Configuração Simplificada:** Scripts e arquivos de configuração facilitam a implantação e o desenvolvimento rápidos.
-* 🔔 **Agendamento em Tempo Real:** Lembretes dinâmicos de medicamentos mantêm os usuários informados e engajados.
+* 🔔 **Agendamento em Tempo Real e Gerenciamento de Doses:** Lembretes dinâmicos de medicamentos com controle de janela de 10 minutos (5 min antes/5 min depois) para registro preciso.
+* 📈 **Histórico de Adesão (Gráficos):** Permite aos usuários visualizar a frequência com que tomaram seus medicamentos (Histórico de Doses).
 * 🔒 **Autenticação de Usuário:** Gerenciamento seguro de perfis e suporte a login persistente para experiências de usuário contínuas.
 * 📱 **Componentes Modulares:** Elementos de UI reutilizáveis, como itens de medicação e modais, aumentam a eficiência do desenvolvimento.
 
@@ -25,9 +26,9 @@ Este projeto simplifica o desenvolvimento de ferramentas multiplataforma para ge
 
 ## Tecnologias Utilizadas
 
-O projeto foi construído com as seguintes ferramentas e tecnologias:
+O projeto foi construído com as seguintes ferramentas e tecnologias, incluindo as bibliotecas de terceiros necessárias para gráficos e notificação:
 
-**JSON, Markdown, npm, JavaScript, React, bat, Expo**
+**JSON, Markdown, npm, JavaScript, React, bat, Expo, @react-native-async-storage/async-storage, expo-notifications, react-native-chart-kit, react-native-svg**
 
 ---
 
@@ -47,7 +48,7 @@ Crie o *build* do `remedios-de-notas` a partir do código-fonte e instale as dep
 1.  **Clonar o repositório:**
 
     ```bash
-    git clone [https://github.com/rodolfo-dAl/remedios-de-notas](https://github.com/rodolfo-dAl/remedios-de-notas)
+    git clone [[https://github.com/rodolfo-dAl/remedios-de-notas](https://github.com/rodolfo-dAl/remedios-de-notas)]([https://github.com/rodolfo-dAl/remedios-de-notaste](https://github.com/rodolfo-dAl/remedios-de-notaste)
     ```
 
 2.  **Navegar até o diretório do projeto:**
@@ -56,10 +57,12 @@ Crie o *build* do `remedios-de-notas` a partir do código-fonte e instale as dep
     cd remedios-de-notas
     ```
 
-3.  **Instalar as dependências:**
+3.  **Instalar as dependências (incluindo dependências nativas como o Chart-kit):**
 
     ```bash
     npm install
+    # Execute o comando abaixo se tiver problemas com as bibliotecas de gráfico/SVG:
+    # expo install react-native-chart-kit react-native-svg
     ```
 
 ### Uso
@@ -71,8 +74,6 @@ npm start
 ```
 
 ### Testes
-
-O Remedios-de-notas utiliza o framework de teste (test_framework). Execute o conjunto de testes com:
 
 ```bash
 npm test
