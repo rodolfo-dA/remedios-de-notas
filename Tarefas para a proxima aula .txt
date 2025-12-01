@@ -1,7 +1,0 @@
-
-
-Criar a função que reorganiza a lista de medicamentos pelos horário mais urgentes
-Criar o botão de atualizar medicamentos manualmente
-Criar a função que atualiza automaticamente de tempos em tempos
-
-Colocar um rotulo, informando a versao do projet, seguindo o padrão: V01.00.00

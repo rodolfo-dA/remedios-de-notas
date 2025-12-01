@@ -1,25 +1,5 @@
-// screens/HomeScreen.js
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  ScrollView,
-  StyleSheet,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-  ActivityIndicator,
-  Animated,
-  Keyboard,
-  Alert,
-  Switch,
-  useColorScheme,
-  Modal, 
-  Image,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, ScrollView, StyleSheet, LayoutAnimation, Platform, UIManager, ActivityIndicator, Animated, Keyboard, Alert, Switch, useColorScheme, Modal, Image } from 'react-native';
 import MedicationItem from '../components/MedicationItem';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import MedicationHistoryModal from '../components/MedicationHistoryModal'; 
@@ -31,138 +11,73 @@ import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons'; 
 import ProfileScreen from './ProfileScreen'; 
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) UIManager.setLayoutAnimationEnabledExperimental(true);
 
 const STORAGE_KEY = '@medications_v1';
 const THEME_STORAGE_KEY = '@app_theme';
 const NOTIFICATION_EARLY_MINUTES = 20; 
 
-// --- FUNÇÕES DE LÓGICA DE HORÁRIOS ---
 function timeToMinutes(t) {
   if (!t) return 24 * 60;
   const [h, m] = t.split(':').map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return 24 * 60;
-  return h * 60 + m;
+  return (Number.isNaN(h) || Number.isNaN(m)) ? 24 * 60 : h * 60 + m;
 }
 
 function getTimeBefore(targetTime, minutesBefore) {
   const [h, m] = targetTime.split(':').map(Number);
-  let totalMinutes = h * 60 + m;
-  totalMinutes -= minutesBefore;
-
-  if (totalMinutes < 0) {
-    totalMinutes += 24 * 60;
-  }
-
-  const newH = Math.floor(totalMinutes / 60) % 24;
-  const newM = totalMinutes % 60;
-
-  return { 
-    hour: newH, 
-    minute: newM, 
-    formatted: `${newH.toString().padStart(2, '0')}:${newM.toString().padStart(2, '0')}` 
-  };
+  let totalMinutes = h * 60 + m - minutesBefore;
+  if (totalMinutes < 0) totalMinutes += 24 * 60;
+  return { hour: Math.floor(totalMinutes / 60) % 24, minute: totalMinutes % 60 };
 }
 
 function calculateDoseTimes(startTime, intervalHours) {
-  if (!startTime || !intervalHours || intervalHours < 1 || intervalHours > 24) return [];
-
+  if (!startTime || !intervalHours) return [];
   const [startH, startM] = startTime.split(':').map(Number);
   const intervalMinutes = intervalHours * 60;
   const allTimes = [];
   let currentMinutes = startH * 60 + startM;
-  
   for (let i = 0; i < 24 / intervalHours; i++) {
     const h = Math.floor(currentMinutes / 60) % 24;
     const m = currentMinutes % 60;
-    const formattedTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-    allTimes.push(formattedTime);
+    allTimes.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
     currentMinutes += intervalMinutes;
   }
-
-  const uniqueTimes = Array.from(new Set(allTimes)).sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
-  return uniqueTimes;
+  return Array.from(new Set(allTimes)).sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
 }
 
 function findNextDoseTime(doseTimes) {
-  if (!doseTimes || doseTimes.length === 0) return '23:59';
-  
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-
-  let nextTime = doseTimes.find(t => timeToMinutes(t) > nowMinutes);
-  
-  if (!nextTime) {
-    nextTime = doseTimes[0]; 
-  }
-  
-  return nextTime;
+  if (!doseTimes || !doseTimes.length) return '23:59';
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+  const nextTime = doseTimes.find(t => timeToMinutes(t) > nowMinutes);
+  return nextTime || doseTimes[0];
 }
 
-// 🚀 CORREÇÃO PRINCIPAL DE NOTIFICAÇÕES
 async function scheduleNotificationsForMedication(medId, doseTimes, nomeMed) {
   try {
     const ids = [];
     const now = new Date();
-    
     for (const t of doseTimes) {
-      const notificationTime = getTimeBefore(t, NOTIFICATION_EARLY_MINUTES); 
-      
-      let initialTriggerDate = new Date();
-      initialTriggerDate.setHours(notificationTime.hour, notificationTime.minute, 0, 0);
-
-      // Se o horário de disparo (20 min antes) já passou hoje, agendamos o primeiro disparo para amanhã
-      if (initialTriggerDate < now) {
-          initialTriggerDate.setDate(initialTriggerDate.getDate() + 1);
-      }
-      
-      const finalTrigger = {
-          date: initialTriggerDate,
-          repeats: true,
-      };
-      
-      const id = await Notifications.scheduleNotificationAsync({
-        content: { 
-          title: `Lembrete de Remédio (${NOTIFICATION_EARLY_MINUTES} min)`, 
-          body: `${nomeMed} — A próxima dose é às ${t}.`, 
-          sound: true, 
-          data: { medId } 
-        },
-        trigger: finalTrigger,
-      });
+      const { hour, minute } = getTimeBefore(t, NOTIFICATION_EARLY_MINUTES);
+      let trigger = new Date();
+      trigger.setHours(hour, minute, 0, 0);
+      if (trigger < now) trigger.setDate(trigger.getDate() + 1);
+      const id = await Notifications.scheduleNotificationAsync({ content: { title: `Lembrete (${NOTIFICATION_EARLY_MINUTES} min)`, body: `${nomeMed} — Próxima: ${t}.`, sound: true, data: { medId } }, trigger: { date: trigger, repeats: true } });
       ids.push(id);
     }
     return ids;
-  } catch (e) {
-    console.warn('Erro ao agendar notificações:', e);
-    return [];
-  }
+  } catch (e) { return []; }
 }
 
 async function cancelNotificationIds(ids = []) {
-    try {
-      for (const id of ids) {
-        if (id) await Notifications.cancelScheduledNotificationAsync(id);
-      }
-    } catch (e) {
-      console.warn('Erro ao cancelar notificações:', e);
-    }
+    try { for (const id of ids) if (id) await Notifications.cancelScheduledNotificationAsync(id); } catch (e) {}
 }
-// --- FIM FUNÇÕES DE LÓGICA DE HORÁRIOS ---
 
-
-// --- COMPONENTE PRINCIPAL ---
 export default function HomeScreen({ user, onLogout, onUpdateUser }) { 
   const systemScheme = useColorScheme();
   const [currentTheme, setCurrentTheme] = useState('light'); 
-
   const [currentTimeTick, setCurrentTimeTick] = useState(Date.now()); 
-
   const [frequenciaInterval, setFrequenciaInterval] = useState(8); 
   const [primeiraDoseTime, setPrimeiraDoseTime] = useState('08:00'); 
-
   const [medications, setMedications] = useState([]);
   const [nome, setNome] = useState('');
   const [dose, setDose] = useState('');
@@ -175,540 +90,196 @@ export default function HomeScreen({ user, onLogout, onUpdateUser }) {
   const [errors, setErrors] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false); 
-  
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
   const [selectedMedicationForHistory, setSelectedMedicationForHistory] = useState(null);
-  
   const toastAnim = useRef(new Animated.Value(0)).current;
 
-  // Lógica de Tema 
-  useEffect(() => {
-    (async () => {
-        try {
-            const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-            if (savedTheme === 'dark' || savedTheme === 'light') {
-                setCurrentTheme(savedTheme);
-            } else {
-                setCurrentTheme(systemScheme || 'light');
-            }
-        } catch (e) {
-            setCurrentTheme(systemScheme || 'light');
-        }
-    })();
-  }, [systemScheme]);
-
-  useEffect(() => {
-    (async () => {
-        try {
-            await AsyncStorage.setItem(THEME_STORAGE_KEY, currentTheme);
-        } catch (e) {
-            console.warn('Erro ao salvar tema:', e);
-        }
-    })();
-  }, [currentTheme]);
+  useEffect(() => { AsyncStorage.getItem(THEME_STORAGE_KEY).then(t => setCurrentTheme(t === 'dark' || t === 'light' ? t : systemScheme || 'light')).catch(() => {}); }, [systemScheme]);
+  useEffect(() => { AsyncStorage.setItem(THEME_STORAGE_KEY, currentTheme).catch(() => {}); }, [currentTheme]);
 
   const finalScheme = currentTheme; 
   const styles = useGlobalStyles(finalScheme);
   const isDark = finalScheme === 'dark';
 
-  // FUNÇÃO PRINCIPAL PARA CARREGAR E ATUALIZAR HORÁRIOS
   const loadAndRecalculateMedications = useCallback(async () => {
     try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
-            const saved = JSON.parse(raw);
-            const normalized = (saved || []).map(m => {
+            const normalized = (JSON.parse(raw) || []).map(m => {
                 const times = m.horarios ? m.horarios.split(',').map(s => s.trim()) : [];
-                const proximo = findNextDoseTime(times); 
-                return {
-                    id: m.id || uuid.v4(),
-                    nome: m.nome || 'Sem nome',
-                    dose: m.dose || '',
-                    frequencia: m.frequencia || '', 
-                    horarios: m.horarios || '', 
-                    anotacoes: m.anotacoes || '',
-                    proximoHorario: proximo, 
-                    notificationIds: m.notificationIds || [],
-                };
+                return { ...m, id: m.id || uuid.v4(), proximoHorario: findNextDoseTime(times) };
             });
             setMedications(normalized);
         }
-    } catch (e) {
-        console.warn('Erro ao carregar medicamentos:', e);
-    }
+    } catch (e) {}
   }, [currentTimeTick]); 
 
-  // 4. FUNÇÃO DE ATUALIZAÇÃO AUTOMÁTICA
   useEffect(() => {
     loadAndRecalculateMedications(); 
-
-    // Atualiza a cada 30 segundos para manter a lógica do MedicationItem atualizada
-    const interval = setInterval(() => {
-        setCurrentTimeTick(Date.now());
-    }, 30000); 
-
+    const interval = setInterval(() => setCurrentTimeTick(Date.now()), 30000); 
     return () => clearInterval(interval);
   }, [loadAndRecalculateMedications]);
 
-  // 2. ORGANIZAR POR URGÊNCIA (Reordenação)
   const sortedMedications = medications.slice().sort((a, b) => {
     const nowMinutes = (new Date().getHours() * 60 + new Date().getMinutes());
-
-    const getMinutesFromNow = (timeString) => {
-        const min = timeToMinutes(timeString || '23:59');
-        return min >= nowMinutes ? min - nowMinutes : (min + 24 * 60) - nowMinutes;
-    };
-    
-    const aUrgency = getMinutesFromNow(a.proximoHorario);
-    const bUrgency = getMinutesFromNow(b.proximoHorario);
-
-    if (aUrgency === bUrgency) {
-        return a.nome.localeCompare(b.nome);
-    }
-    
-    return aUrgency - bUrgency;
+    const diff = (t) => { const m = timeToMinutes(t || '23:59'); return m >= nowMinutes ? m - nowMinutes : (m + 1440) - nowMinutes; };
+    return diff(a.proximoHorario) - diff(b.proximoHorario) || a.nome.localeCompare(b.nome);
   });
 
-  useEffect(() => {
-    (async () => {
-        try {
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(medications));
-        } catch (e) {
-            console.warn('Erro ao salvar medicamentos:', e);
-        }
-    })();
-  }, [medications]);
-
+  useEffect(() => { AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(medications)).catch(() => {}); }, [medications]);
 
   function validateFields() {
     const e = {};
     if (!nome.trim()) e.nome = 'Nome obrigatório';
     if (!dose.trim()) e.dose = 'Dose obrigatória';
-    
-    if (!frequenciaInterval || frequenciaInterval < 1 || frequenciaInterval > 24) {
-      e.frequenciaInterval = 'Selecione a frequência entre 1 e 24 horas';
-    }
-
-    if (!primeiraDoseTime.trim()) {
-      e.primeiraDoseTime = 'Horário da primeira dose obrigatório';
-    } else {
-      const parts = primeiraDoseTime.split(':').map(Number);
-      if (parts.length !== 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1]) || parts[0] > 23 || parts[1] > 59) {
-        e.primeiraDoseTime = 'Use formato HH:MM válido (ex: 08:00)';
-      }
-    }
-    
+    if (!frequenciaInterval) e.frequenciaInterval = 'Selecione a frequência';
+    if (!primeiraDoseTime.trim() || primeiraDoseTime.length !== 5) e.primeiraDoseTime = 'Formato HH:MM';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
   function showToast(msg = 'Salvo') {
     Keyboard.dismiss();
-    Animated.sequence([
-      Animated.timing(toastAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.delay(1000),
-      Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start();
+    Animated.sequence([Animated.timing(toastAnim, { toValue: 1, duration: 300, useNativeDriver: true }), Animated.delay(1000), Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: true })]).start();
   }
 
   const addOrSaveMedication = async () => {
     if (!validateFields()) return;
     setIsSaving(true);
-
     try {
       const calculatedHorarios = calculateDoseTimes(primeiraDoseTime, frequenciaInterval);
       const horariosString = calculatedHorarios.join(', ');
       const newFrequenciaDesc = `A cada ${frequenciaInterval} hora(s)`;
       const proximoHorario = findNextDoseTime(calculatedHorarios);
-
+      
       if (isEditing && editingId) {
         const original = medications.find(m => m.id === editingId);
-        if (original?.notificationIds?.length) {
-          await cancelNotificationIds(original.notificationIds);
-        }
-        
-        const notificationIds = await scheduleNotificationsForMedication(editingId, calculatedHorarios, nome);
-        
-        const updated = medications.map(m => m.id === editingId ? {
-          ...m,
-          nome: nome.trim(),
-          dose: dose.trim(),
-          frequencia: newFrequenciaDesc, 
-          horarios: horariosString,      
-          anotacoes: anotacoes.trim(),
-          proximoHorario: proximoHorario,
-          notificationIds,
-        } : m);
-        setMedications(updated);
-        setIsEditing(false);
-        setEditingId(null);
-        showToast('Editado com sucesso!');
-
+        if (original?.notificationIds) await cancelNotificationIds(original.notificationIds);
+        const nIds = await scheduleNotificationsForMedication(editingId, calculatedHorarios, nome);
+        setMedications(prev => prev.map(m => m.id === editingId ? { ...m, nome: nome.trim(), dose: dose.trim(), frequencia: newFrequenciaDesc, horarios: horariosString, anotacoes: anotacoes.trim(), proximoHorario, notificationIds: nIds } : m));
+        setIsEditing(false); setEditingId(null);
       } else {
         const id = uuid.v4();
-        
-        const notificationIds = await scheduleNotificationsForMedication(id, calculatedHorarios, nome);
-        
-        const newMed = {
-          id,
-          nome: nome.trim(),
-          dose: dose.trim(),
-          frequencia: newFrequenciaDesc, 
-          horarios: horariosString,      
-          anotacoes: anotacoes.trim(),
-          proximoHorario: proximoHorario,
-          notificationIds,
-        };
-        setMedications(prev => [newMed, ...prev]);
-        showToast('Adicionado com sucesso!');
+        const nIds = await scheduleNotificationsForMedication(id, calculatedHorarios, nome);
+        setMedications(prev => [{ id, nome: nome.trim(), dose: dose.trim(), frequencia: newFrequenciaDesc, horarios: horariosString, anotacoes: anotacoes.trim(), proximoHorario, notificationIds: nIds }, ...prev]);
       }
-
-      // Resetar estados
-      setNome('');
-      setDose('');
-      setFrequenciaInterval(8); 
-      setPrimeiraDoseTime('08:00'); 
-      setAnotacoes('');
-      setErrors({});
+      setNome(''); setDose(''); setFrequenciaInterval(8); setPrimeiraDoseTime('08:00'); setAnotacoes(''); setErrors({});
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setShowForm(false);
-    } catch (e) {
-      console.warn('Erro ao salvar medicação:', e);
-      Alert.alert('Erro', 'Não foi possível salvar a medicação. Tente novamente.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const deleteMedication = (id) => {
-    if (!id) return;
-    setMedToDelete(id);
-    setDeleteAll(false);
-    setModalVisible(true);
-  };
-
-  const clearAllMedications = () => {
-    setDeleteAll(true);
-    setModalVisible(true);
+      showToast();
+    } catch (e) { Alert.alert('Erro', 'Não foi possível salvar.'); } finally { setIsSaving(false); }
   };
 
   const confirmDelete = async () => {
     setModalVisible(false);
     if (deleteAll) {
-      for (const m of medications) {
-        if (m.notificationIds?.length) await cancelNotificationIds(m.notificationIds);
-      }
+      for (const m of medications) if (m.notificationIds) await cancelNotificationIds(m.notificationIds);
       setMedications([]);
-      setMedToDelete(null);
-      showToast('Todas as medicações foram apagadas.');
-      return;
+    } else if (medToDelete) {
+      const target = medications.find(m => m.id === medToDelete);
+      if (target?.notificationIds) await cancelNotificationIds(target.notificationIds);
+      setMedications(prev => prev.filter(m => m.id !== medToDelete));
     }
-
-    if (!medToDelete) {
-      return;
-    }
-
-    const target = medications.find(m => m.id === medToDelete);
-    if (target?.notificationIds?.length) {
-      await cancelNotificationIds(target.notificationIds);
-    }
-    setMedications(prev => prev.filter(m => m.id !== medToDelete));
-    setMedToDelete(null);
-    showToast('Remoção realizada.');
+    setMedToDelete(null); setDeleteAll(false); showToast('Removido.');
   };
 
   const handleEdit = (id) => {
     const m = medications.find(x => x.id === id);
     if (!m) return;
-    
     const intervalMatch = m.frequencia.match(/A cada (\d+) hora\(s\)/);
-    const firstTimeMatch = m.horarios.split(',')[0]?.trim() || '08:00';
-    
-    setNome(m.nome);
-    setDose(m.dose);
-    setFrequenciaInterval(intervalMatch ? Number(intervalMatch[1]) : 8); 
-    setPrimeiraDoseTime(firstTimeMatch);
-    setAnotacoes(m.anotacoes || '');
-    setIsEditing(true);
-    setEditingId(id);
+    setNome(m.nome); setDose(m.dose); setFrequenciaInterval(intervalMatch ? Number(intervalMatch[1]) : 8); setPrimeiraDoseTime(m.horarios.split(',')[0]?.trim() || '08:00'); setAnotacoes(m.anotacoes || '');
+    setIsEditing(true); setEditingId(id);
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowForm(true);
   };
 
-  const toggleForm = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    if (showForm) {
-      setIsEditing(false); setEditingId(null); setErrors({});
-      setNome(''); setDose(''); setFrequenciaInterval(8); setPrimeiraDoseTime('08:00'); setAnotacoes('');
-    }
-    setShowForm(prev => !prev);
-  };
-
-  const toggleTheme = () => {
-    setCurrentTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  };
-
-  const frequencyOptions = Array.from({ length: 24 }, (_, i) => i + 1);
-
-  // NOVO: Função para registrar a dose
   const handleLogDose = async (medId, nextHorario) => {
       const med = medications.find(m => m.id === medId);
       if (!med) return;
-      
-      const now = new Date();
-      const doseRecord = {
-          id: uuid.v4(),
-          medId,
-          medicationName: med.nome,
-          targetTime: nextHorario, // Horário que a dose deveria ter sido tomada (HH:MM)
-          timestamp: now.toISOString(), // Horário real da tomada (ISO String)
-      };
-
       try {
-          const STORAGE_KEY_HISTORY = `@med_history_${medId}`;
-          const rawHistory = await AsyncStorage.getItem(STORAGE_KEY_HISTORY);
-          const history = JSON.parse(rawHistory || '[]');
-          
-          history.push(doseRecord);
-          await AsyncStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
-          
-          // Força a atualização da lista para que o MedicationItem recalcule o status (TOMADO)
+          const key = `@med_history_${medId}`;
+          const history = JSON.parse((await AsyncStorage.getItem(key)) || '[]');
+          history.push({ id: uuid.v4(), medId, medicationName: med.nome, targetTime: nextHorario, timestamp: new Date().toISOString() });
+          await AsyncStorage.setItem(key, JSON.stringify(history));
           setCurrentTimeTick(Date.now()); 
-          showToast(`Dose de ${med.nome} registrada!`);
-
-      } catch (e) {
-          console.warn('Erro ao registrar dose:', e);
-          Alert.alert('Erro', 'Não foi possível registrar a dose.');
-      }
+          showToast(`Dose registrada!`);
+      } catch (e) { Alert.alert('Erro', 'Falha ao registrar.'); }
   };
-  
-  // NOVO: Funções para o modal de histórico
-  const handleShowHistory = (medication) => {
-    setSelectedMedicationForHistory(medication);
-    setIsHistoryModalVisible(true);
-  };
-  
-  const handleCloseHistory = () => {
-    setIsHistoryModalVisible(false);
-    setSelectedMedicationForHistory(null);
-  };
-
 
   return (
     <View style={styles.container}>
-      
-      {/* CABEÇALHO */}
       <View style={localStyles.header}>
         <Text style={styles.headerTitle}>Remédios de Notas</Text>
-        
-        {/* ÍCONE DE PERFIL */}
-        <TouchableOpacity 
-          onPress={() => setIsProfileModalVisible(true)} 
-          style={[localStyles.profileButton, { borderColor: isDark ? styles.input.borderColor : '#ccc' }]}
-        >
-          {user.photoUri ? (
-            <Image 
-              source={{ uri: user.photoUri }} 
-              style={localStyles.profileImage} 
-            />
-          ) : (
-            <MaterialIcons name="account-circle" size={30} color={isDark ? styles.sectionTitle.color : '#333'} />
-          )}
+        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)} style={[localStyles.profileButton, { borderColor: isDark ? styles.input.borderColor : '#ccc' }]}>
+          {user.photoUri ? <Image source={{ uri: user.photoUri }} style={localStyles.profileImage} /> : <MaterialIcons name="account-circle" size={30} color={isDark ? styles.sectionTitle.color : '#333'} />}
         </TouchableOpacity>
       </View>
-      
-      {/* CONTROLE DE TEMA */}
       <View style={{ alignItems: 'flex-end', marginTop: -10, marginBottom: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Text style={[styles.smallMuted, { marginRight: 8, color: isDark ? styles.smallMuted.color : '#333' }]}>Tema: {currentTheme === 'dark' ? 'Escuro' : 'Claro'}</Text>
-          <Switch
-            value={currentTheme === 'dark'}
-            onValueChange={toggleTheme}
-            trackColor={{ false: "#767577", true: "#81b0ff" }}
-            thumbColor={isDark ? "#f4f3f4" : "#f4f3f4"}
-          />
+          <Switch value={currentTheme === 'dark'} onValueChange={() => setCurrentTheme(p => p === 'dark' ? 'light' : 'dark')} trackColor={{ false: "#767577", true: "#81b0ff" }} thumbColor={"#f4f3f4"} />
         </View>
       </View>
-
-      <TouchableOpacity
-        style={[{ backgroundColor: showForm ? '#FF6347' : '#1E90FF', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 8 }]}
-        onPress={toggleForm}
-      >
+      <TouchableOpacity style={[{ backgroundColor: showForm ? '#FF6347' : '#1E90FF', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 8 }]} onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setShowForm(p => !p); }}>
         <Text style={{ color: '#fff', fontWeight: 'bold' }}>{showForm ? 'Cancelar' : '➕ Adicionar Novo'}</Text>
       </TouchableOpacity>
-
       {showForm && (
         <ScrollView style={localStyles.formContainer} keyboardShouldPersistTaps="handled">
-          <Text style={styles.sectionTitle}>{isEditing ? 'Editar Medicação' : 'Adicionar Novo Medicamento'}</Text>
-
-          <TextInput style={styles.input} placeholder="Nome do Remédio" placeholderTextColor={finalScheme === 'dark' ? '#9AA7B2' : '#899'} value={nome} onChangeText={setNome} />
+          <Text style={styles.sectionTitle}>{isEditing ? 'Editar Medicação' : 'Adicionar Novo'}</Text>
+          <TextInput style={styles.input} placeholder="Nome" placeholderTextColor={finalScheme === 'dark' ? '#9AA7B2' : '#899'} value={nome} onChangeText={setNome} />
           {errors.nome && <Text style={styles.errorText}>{errors.nome}</Text>}
-
-          <TextInput style={styles.input} placeholder="Dose (ex: 500mg)" placeholderTextColor={finalScheme === 'dark' ? '#9AA7B2' : '#899'} value={dose} onChangeText={setDose} />
+          <TextInput style={styles.input} placeholder="Dose" placeholderTextColor={finalScheme === 'dark' ? '#9AA7B2' : '#899'} value={dose} onChangeText={setDose} />
           {errors.dose && <Text style={styles.errorText}>{errors.dose}</Text>}
-
-          <Text style={[styles.smallMuted, { marginBottom: 4, marginTop: 4, color: finalScheme === 'dark' ? '#E6EEF8' : '#333', fontSize: 14 }]}>Frequência (a cada quantas horas?)</Text>
+          <Text style={[styles.smallMuted, { marginBottom: 4, color: finalScheme === 'dark' ? '#E6EEF8' : '#333' }]}>Frequência:</Text>
           <View style={[styles.input, { padding: 0, height: 48, backgroundColor: styles.input.backgroundColor, borderColor: styles.input.borderColor }]}>
-            <Picker
-              selectedValue={frequenciaInterval}
-              onValueChange={(itemValue) => setFrequenciaInterval(itemValue)}
-              // Força a cor do texto a ser ESCURA (#333) em ambos os modos
-              style={{ color: '#333' }}
-              itemStyle={{ color: '#333' }}
-            >
-              {frequencyOptions.map(hour => (
-                <Picker.Item key={hour} label={`${hour} hora(s)`} value={hour} />
-              ))}
+            <Picker selectedValue={frequenciaInterval} onValueChange={setFrequenciaInterval} style={{ color: '#333' }} itemStyle={{ color: '#333' }}>
+              {Array.from({ length: 24 }, (_, i) => i + 1).map(h => <Picker.Item key={h} label={`${h} hora(s)`} value={h} />)}
             </Picker>
           </View>
-          {errors.frequenciaInterval && <Text style={styles.errorText}>{errors.frequenciaInterval}</Text>}
-          
-          <TextInput 
-            style={styles.input} 
-            placeholder="Horário da 1ª dose (Ex: 08:00)" 
-            placeholderTextColor={finalScheme === 'dark' ? '#9AA7B2' : '#899'} 
-            value={primeiraDoseTime} 
-            onChangeText={(text) => {
-              const formattedText = text.replace(/[^0-9:]/g, ''); 
-              setPrimeiraDoseTime(formattedText);
-            }} 
-            keyboardType="numbers-and-punctuation"
-            maxLength={5}
-          />
+          <TextInput style={styles.input} placeholder="1ª dose (Ex: 08:00)" placeholderTextColor={finalScheme === 'dark' ? '#9AA7B2' : '#899'} value={primeiraDoseTime} onChangeText={t => setPrimeiraDoseTime(t.replace(/[^0-9:]/g, ''))} maxLength={5} keyboardType="numbers-and-punctuation"/>
           {errors.primeiraDoseTime && <Text style={styles.errorText}>{errors.primeiraDoseTime}</Text>}
-          <Text style={[styles.smallMuted, { marginBottom: 8, marginTop: -4 }]}>Horários futuros serão calculados automaticamente.</Text>
-
-          <TextInput style={[styles.input, styles.textArea]} placeholder="Anotações (opcional)" placeholderTextColor={finalScheme === 'dark' ? '#9AA7B2' : '#899'} value={anotacoes} onChangeText={setAnotacoes} multiline />
-
+          <TextInput style={[styles.input, styles.textArea]} placeholder="Anotações" placeholderTextColor={finalScheme === 'dark' ? '#9AA7B2' : '#899'} value={anotacoes} onChangeText={setAnotacoes} multiline />
           <TouchableOpacity style={localStyles.saveButton} onPress={addOrSaveMedication} disabled={isSaving}>
-            {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={localStyles.saveButtonText}>{isEditing ? 'Salvar alterações' : 'Registrar Medicação'}</Text>}
+            {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={localStyles.saveButtonText}>{isEditing ? 'Salvar' : 'Registrar'}</Text>}
           </TouchableOpacity>
         </ScrollView>
       )}
-
       <View style={localStyles.listHeader}>
         <Text style={styles.sectionTitle}>Minhas Medicações</Text>
-        
         <View style={localStyles.listActions}>
-             {/* BOTÃO DE ATUALIZAÇÃO MANUAL (roxo) */}
-            <TouchableOpacity 
-                onPress={() => {
-                    Alert.alert('Atualizado', 'Lista e horários recalculados manualmente.');
-                    setCurrentTimeTick(Date.now()); 
-                }} 
-                style={[styles.clearButton, { backgroundColor: '#8A2BE2', marginRight: 10 }]} 
-            >
+            <TouchableOpacity onPress={() => { Alert.alert('Atualizado', 'Recalculado.'); setCurrentTimeTick(Date.now()); }} style={[styles.clearButton, { backgroundColor: '#8A2BE2', marginRight: 10 }]}>
                 <MaterialIcons name="refresh" size={18} color="#fff" />
             </TouchableOpacity>
-
             {medications.length > 0 && (
-                <TouchableOpacity style={styles.clearButton} onPress={clearAllMedications}>
-                    {/* CORREÇÃO DO BOTÃO: Adiciona numberOfLines para evitar quebra. O estilo de fonte foi reduzido em globalStyles.js */}
+                <TouchableOpacity style={styles.clearButton} onPress={() => { setDeleteAll(true); setModalVisible(true); }}>
                     <Text style={styles.clearButtonText} numberOfLines={1}>Apagar Tudo</Text>
                 </TouchableOpacity>
             )}
         </View>
-
       </View>
-
-      <FlatList
-        data={sortedMedications}
-        renderItem={({ item }) => (
-          <MedicationItem 
-            item={item} 
-            onDelete={deleteMedication} 
-            onEdit={handleEdit} 
-            onLogDose={handleLogDose} 
-            onShowHistory={handleShowHistory} 
-            currentTimeTick={currentTimeTick} 
-            scheme={finalScheme} 
-          /> 
-        )}
-        keyExtractor={item => item.id}
-        ListEmptyComponent={<Text style={styles.emptyListText}>Nenhuma medicação registrada.</Text>}
-        contentContainerStyle={{ paddingBottom: 80 }}
-      />
-
+      <FlatList data={sortedMedications} renderItem={({ item }) => ( <MedicationItem item={item} onDelete={(id) => { setMedToDelete(id); setDeleteAll(false); setModalVisible(true); }} onEdit={handleEdit} onLogDose={handleLogDose} onShowHistory={(m) => { setSelectedMedicationForHistory(m); setIsHistoryModalVisible(true); }} currentTimeTick={currentTimeTick} scheme={finalScheme} /> )} keyExtractor={item => item.id} ListEmptyComponent={<Text style={styles.emptyListText}>Nenhuma medicação registrada.</Text>} contentContainerStyle={{ paddingBottom: 80 }} />
       <DeleteConfirmModal visible={modalVisible} onCancel={() => setModalVisible(false)} onConfirm={confirmDelete} deleteAll={deleteAll} />
-
-      <Animated.View pointerEvents="none" style={[localStyles.toast, { transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-60, 20] }) }], opacity: toastAnim }]}>
-        <Text style={{ color: '#fff', fontWeight: '700' }}>✔️ Ação realizada</Text>
-      </Animated.View>
-      
-      {/* RÓTULO DE VERSÃO */}
-      <View style={localStyles.versionContainer}>
-          <Text style={styles.smallMuted}>Versão: V01.06.00</Text>
-      </View>
-
-      {/* MODAL LATERAL DE PERFIL */}
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={isProfileModalVisible}
-        onRequestClose={() => setIsProfileModalVisible(false)}
-      >
-        <ProfileScreen 
-          user={user} 
-          onBack={() => setIsProfileModalVisible(false)} 
-          onLogout={onLogout} 
-          onUpdateUser={onUpdateUser}
-          scheme={finalScheme} 
-        />
+      <Animated.View pointerEvents="none" style={[localStyles.toast, { transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-60, 20] }) }], opacity: toastAnim }]}><Text style={{ color: '#fff', fontWeight: '700' }}>✔️ Ação realizada</Text></Animated.View>
+      <View style={localStyles.versionContainer}><Text style={styles.smallMuted}>Versão: V01.06.00</Text></View>
+      <Modal animationType="slide" visible={isProfileModalVisible} onRequestClose={() => setIsProfileModalVisible(false)}>
+        <ProfileScreen user={user} onBack={() => setIsProfileModalVisible(false)} onLogout={onLogout} onUpdateUser={onUpdateUser} scheme={finalScheme} />
       </Modal>
-
-      {/* MODAL DE HISTÓRICO - MANTIDO TRANSPARENTE PARA EVITAR FLASH BRANCO */}
-      <Modal
-        animationType="slide"
-        transparent={true} 
-        visible={isHistoryModalVisible}
-        onRequestClose={handleCloseHistory}
-      >
-        <MedicationHistoryModal 
-            medication={selectedMedicationForHistory} 
-            onClose={handleCloseHistory} 
-            scheme={finalScheme} 
-        />
+      <Modal animationType="slide" transparent={true} visible={isHistoryModalVisible} onRequestClose={() => setIsHistoryModalVisible(false)}>
+        <MedicationHistoryModal medication={selectedMedicationForHistory} onClose={() => { setIsHistoryModalVisible(false); setSelectedMedicationForHistory(null); }} scheme={finalScheme} />
       </Modal>
-
     </View>
   );
 }
 
 const localStyles = StyleSheet.create({
-  header: { 
-    flexDirection: 'row', 
-    alignItems: 'center',
-    justifyContent: 'space-between', 
-    marginBottom: 10,
-    // Removendo o marginTop: 0 para usar o paddingTop do styles.container
-  },
-  profileButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-  },
-  profileImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  versionContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 15,
-    right: 15,
-    paddingVertical: 5,
-    alignItems: 'center',
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  profileButton: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent', borderWidth: 1 },
+  profileImage: { width: 36, height: 36, borderRadius: 18 },
+  versionContainer: { position: 'absolute', bottom: 0, left: 15, right: 15, paddingVertical: 5, alignItems: 'center' },
   formContainer: { backgroundColor: 'transparent', borderRadius: 8, padding: 10, marginBottom: 12 },
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, marginBottom: 8 },
-  listActions: { flexDirection: 'row', alignItems: 'center' }, 
+  listActions: { flexDirection: 'row', alignItems: 'center' },
   saveButton: { backgroundColor: '#1E90FF', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 8 },
   saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   toast: { position: 'absolute', left: 16, right: 16, padding: 10, backgroundColor: '#28A745', borderRadius: 8, alignItems: 'center', top: 8, zIndex: 999, elevation: 6 },

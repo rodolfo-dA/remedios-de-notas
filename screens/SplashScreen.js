@@ -1,50 +1,21 @@
-// screens/SplashScreen.js
 import React, { useEffect, useRef } from 'react';
-import { View, Image, Animated, StyleSheet } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 
-// 🚀 MUDANÇA: A SplashScreen agora é puramente visual e não precisa notificar o App.js para ir para a próxima tela,
-// pois o App.js controla o tempo mínimo de exibição.
-export default function SplashScreen({ onFinish }) {
+export default function SplashScreen() {
   const mascotFadeAnim = new Animated.Value(1);
-  // Renomeado para não conflitar com a função 'useRef'
-  const containerFadeAnim = useRef(new Animated.Value(1)).current; 
+  const containerFadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const GIF_DURATION = 1500; // 1.5 segundos
-    const FADE_OUT_DURATION = 800;
-    
-    // A animação do mascote será visível por 1500ms (1 loop do GIF) antes de dar FadeOut junto com a tela.
-    const mascotAnimation = Animated.sequence([
-      Animated.delay(GIF_DURATION), 
-      Animated.timing(mascotFadeAnim, { toValue: 0, duration: FADE_OUT_DURATION, useNativeDriver: true }),
-    ]);
-
-    // Animação do container (executada APÓS o FadeOut do mascote)
-    const containerAnimation = Animated.timing(containerFadeAnim, {
-      toValue: 0, 
-      duration: 300, // Duração suave para o FadeOut da tela azul
-      useNativeDriver: true,
-    });
-
-    // O mascote some (1500ms + 800ms) e, imediatamente depois, a tela azul começa a sumir (0.3s)
     Animated.sequence([
-      mascotAnimation,
-      containerAnimation,
-    ]).start(() => {
-      // 🚀 AVISO: Mantido a chamada a onFinish para compatibilidade, 
-      // mas o App.js foi corrigido para não depender dela para o fluxo principal.
-      // Se onFinish fosse removido do App.js, poderia ser removido daqui.
-      onFinish && onFinish(); 
-    });
+      Animated.delay(1500),
+      Animated.timing(mascotFadeAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
+      Animated.timing(containerFadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
   }, []);
 
   return (
     <Animated.View style={[styles.container, { opacity: containerFadeAnim }]}>
-      <Animated.Image
-        source={require('../assets/mascote_intro.gif')}
-        style={[styles.logo, { opacity: mascotFadeAnim }]}
-        resizeMode="contain"
-      />
+      <Animated.Image source={require('../assets/mascote_intro.gif')} style={[styles.logo, { opacity: mascotFadeAnim }]} resizeMode="contain" />
     </Animated.View>
   );
 }
